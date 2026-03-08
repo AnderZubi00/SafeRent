@@ -1,13 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
-import type { Vivienda } from "@/lib/viviendas";
 import {
   MapPin, Plus, Users, Wallet, CheckCircle2, TrendingUp,
-  Building2, ArrowRight, PartyPopper,
+  Building2, ArrowRight, PartyPopper, Loader2, Calendar,
+  User, Clock, FileText, Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePropietario } from "@/context/PropietarioContext";
+import ToggleActivaButton from "./_components/ToggleActivaButton";
+import type { Vivienda } from "@/lib/viviendas";
 
 const CARD_COLORS = [
   "from-indigo-500 to-indigo-700",
@@ -24,31 +29,47 @@ function getColor(id: string) {
   return CARD_COLORS[Math.abs(hash) % CARD_COLORS.length];
 }
 
-export default async function PropietarioInicio({
-  searchParams,
-}: {
-  searchParams: Promise<{ publicada?: string; editada?: string }>;
-}) {
-  const { publicada, editada } = await searchParams;
-  const supabase = await createClient();
+const MOTIVO_ICON: Record<string, typeof Users> = {
+  Estudios: Users,
+  "Trabajo temporal": Users,
+  Otros: Users,
+};
 
-  const { data: { user } } = await supabase.auth.getUser();
+export default function PropietarioInicio() {
+  const searchParams = useSearchParams();
+  const publicada = searchParams.get("publicada");
+  const editada = searchParams.get("editada");
 
-  const { data: viviendas = [] } = user
-    ? await supabase
-        .from("viviendas")
-        .select("*")
-        .eq("propietario_id", user.id)
-        .order("fecha_creacion", { ascending: false })
-    : { data: [] as Vivienda[] };
+  const { viviendas, solicitudes, pagos, solicitudesPendientes, cargando } = usePropietario();
 
-  const totalViviendas = viviendas?.length ?? 0;
-  const activas = viviendas?.filter((v) => v.activa).length ?? 0;
+  const totalViviendas = viviendas.length;
+  const activas = viviendas.filter((v) => v.activa).length;
+
+  const ahora = new Date();
+  const mesActual = ahora.getMonth();
+  const anioActual = ahora.getFullYear();
+  const ingresosMes = pagos
+    .filter((p) => {
+      if (p.estado !== "COMPLETADO") return false;
+      const fecha = new Date(p.fecha_pago);
+      return fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual;
+    })
+    .reduce((sum, p) => sum + p.importe, 0);
+
+  const solicitudesRecientes = solicitudes
+    .filter((s) => s.estado === "PENDIENTE")
+    .slice(0, 3);
+
+  if (cargando) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
-
-      {/* Banner edición exitosa */}
       {editada && (
         <div className="flex items-center gap-3 bg-indigo-50 ring-1 ring-indigo-200 rounded-2xl px-5 py-4 shadow-sm">
           <CheckCircle2 className="h-5 w-5 text-indigo-600 shrink-0" />
@@ -64,7 +85,6 @@ export default async function PropietarioInicio({
         </div>
       )}
 
-      {/* Banner publicación exitosa */}
       {publicada && (
         <div className="flex items-center gap-3 bg-emerald-50 ring-1 ring-emerald-200 rounded-2xl px-5 py-4 shadow-sm">
           <PartyPopper className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -111,22 +131,26 @@ export default async function PropietarioInicio({
             positive: activas > 0,
           },
           {
-            label: "Solicitudes nuevas",
-            value: "0",
-            delta: "Sin solicitudes aún",
+            label: "Solicitudes pendientes",
+            value: String(solicitudesPendientes),
+            delta: solicitudesPendientes > 0
+              ? `${solicitudesPendientes} por revisar`
+              : "Sin solicitudes pendientes",
             icon: Users,
             iconBg: "bg-emerald-500/10",
             iconColor: "text-emerald-600",
-            positive: false,
+            positive: solicitudesPendientes > 0,
           },
           {
             label: "Ingresos este mes",
-            value: "0€",
-            delta: "Sin reservas activas",
+            value: `${ingresosMes.toLocaleString("es-ES")}€`,
+            delta: ingresosMes > 0
+              ? `+${ingresosMes.toLocaleString("es-ES")}€ este mes`
+              : "Sin ingresos este mes",
             icon: Wallet,
             iconBg: "bg-amber-500/10",
             iconColor: "text-amber-600",
-            positive: false,
+            positive: ingresosMes > 0,
           },
         ].map((s) => (
           <Card key={s.label} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
@@ -150,6 +174,68 @@ export default async function PropietarioInicio({
         ))}
       </div>
 
+      {/* Solicitudes recientes */}
+      {solicitudesRecientes.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-amber-500" />
+              Solicitudes pendientes
+            </h2>
+            <Link href="/propietario/solicitudes">
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1 ring-1 ring-slate-200 shadow-sm border-0">
+                Ver todas <ArrowRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {solicitudesRecientes.map((s) => (
+              <Card key={s.id} className="ring-1 ring-amber-100 shadow-sm border-0 hover:shadow-md transition-shadow bg-amber-50/30">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="h-9 w-9 rounded-full bg-indigo-50 ring-1 ring-indigo-200 flex items-center justify-center shrink-0">
+                        <User className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {s.usuarios?.nombre_completo ?? "Inquilino"}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate">{s.usuarios?.email}</p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full ring-1 bg-amber-50 text-amber-700 ring-amber-200">
+                      Pendiente
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span className="flex items-center gap-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-full ring-1 ring-slate-200">
+                      <Building2 className="h-3 w-3" />
+                      {s.viviendas?.titulo ?? "Vivienda"}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-full ring-1 ring-slate-200">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(s.fecha_entrada).toLocaleDateString("es-ES", { day: "2-digit", month: "short" })} – {new Date(s.fecha_salida).toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" })}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-full ring-1 ring-slate-200">
+                      <FileText className="h-3 w-3" />
+                      {s.motivo}
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <Link href="/propietario/solicitudes">
+                      <Button size="sm" variant="outline" className="h-7 text-xs ring-1 ring-indigo-200 border-0 text-indigo-600 hover:bg-indigo-50">
+                        Revisar solicitud <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Viviendas */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -162,26 +248,21 @@ export default async function PropietarioInicio({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(viviendas ?? []).map((v: Vivienda) => {
+          {viviendas.map((v: Vivienda) => {
             const color = getColor(v.id);
             return (
               <Card key={v.id} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-all duration-200 overflow-hidden group">
-                <div className={`h-32 bg-linear-to-br ${color} flex items-center justify-center relative`}>
-                  <Building2 className="h-10 w-10 text-white/70" />
+                <div className={`h-28 bg-linear-to-br ${color} flex items-center justify-center relative`}>
+                  {v.fotos?.[0] ? (
+                    <img src={v.fotos[0]} alt={v.titulo} className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                  ) : (
+                    <Building2 className="h-9 w-9 text-white/60" />
+                  )}
                   {v.verificada && (
-                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full ring-1 ring-emerald-200">
+                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full ring-1 ring-emerald-200 z-10">
                       <CheckCircle2 className="h-2.5 w-2.5" /> Verificada
                     </span>
                   )}
-                  <span className={cn(
-                    "absolute top-2.5 right-2.5 flex items-center gap-1.5 text-[10px] font-bold px-2 py-1 rounded-full shadow-sm",
-                    v.activa
-                      ? "bg-indigo-50 text-indigo-700"
-                      : "bg-slate-100 text-slate-500"
-                  )}>
-                    <span className={cn("h-1.5 w-1.5 rounded-full", v.activa ? "bg-indigo-500" : "bg-slate-400")} />
-                    {v.activa ? "Disponible" : "Inactiva"}
-                  </span>
                 </div>
 
                 <CardContent className="p-4 space-y-3">
@@ -202,15 +283,16 @@ export default async function PropietarioInicio({
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 items-center">
+                    <ToggleActivaButton id={v.id} activa={v.activa} />
                     <Link href={`/propietario/vivienda/${v.id}/editar`} className="flex-1">
                       <Button size="sm" variant="outline" className="w-full h-7 text-xs ring-1 ring-indigo-200 border-0 text-indigo-600 hover:bg-indigo-50">
                         Editar
                       </Button>
                     </Link>
-                    <Link href={`/vivienda/${v.id}`} className="flex-1">
-                      <Button size="sm" variant="outline" className="w-full h-7 text-xs ring-1 ring-slate-200 border-0 gap-1">
-                        Ver <ArrowRight className="h-3 w-3" />
+                    <Link href={`/vivienda/${v.id}`}>
+                      <Button size="sm" variant="outline" className="h-7 w-7 p-0 ring-1 ring-slate-200 border-0">
+                        <ArrowRight className="h-3 w-3" />
                       </Button>
                     </Link>
                   </div>
@@ -219,7 +301,6 @@ export default async function PropietarioInicio({
             );
           })}
 
-          {/* Añadir tarjeta */}
           <Link href="/propietario/publicar">
             <div className="border-2 border-dashed border-slate-200 rounded-xl h-full min-h-56 flex flex-col items-center justify-center gap-3 text-slate-400 hover:border-indigo-400 hover:text-indigo-500 hover:bg-indigo-50/50 transition-all cursor-pointer">
               <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center ring-1 ring-slate-200">
@@ -236,17 +317,22 @@ export default async function PropietarioInicio({
         <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Acciones rápidas</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Solicitudes",   href: "/propietario/solicitudes",   icon: Users,        color: "text-indigo-600",  bg: "bg-indigo-50 hover:bg-indigo-100",   ring: "ring-indigo-200" },
-            { label: "Contratos",     href: "/propietario/contratos",     icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50 hover:bg-emerald-100", ring: "ring-emerald-200" },
-            { label: "Liquidaciones", href: "/propietario/liquidaciones", icon: Wallet,       color: "text-amber-600",   bg: "bg-amber-50 hover:bg-amber-100",     ring: "ring-amber-200" },
-            { label: "Publicar",      href: "/propietario/publicar",      icon: Plus,         color: "text-slate-600",   bg: "bg-slate-50 hover:bg-slate-100",     ring: "ring-slate-200" },
+            { label: "Solicitudes",   href: "/propietario/solicitudes",   icon: Users,        color: "text-indigo-600",  bg: "bg-indigo-50 hover:bg-indigo-100",   ring: "ring-indigo-200", badge: solicitudesPendientes },
+            { label: "Contratos",     href: "/propietario/contratos",     icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50 hover:bg-emerald-100", ring: "ring-emerald-200", badge: 0 },
+            { label: "Liquidaciones", href: "/propietario/liquidaciones", icon: Wallet,       color: "text-amber-600",   bg: "bg-amber-50 hover:bg-amber-100",     ring: "ring-amber-200", badge: 0 },
+            { label: "Publicar",      href: "/propietario/publicar",      icon: Plus,         color: "text-slate-600",   bg: "bg-slate-50 hover:bg-slate-100",     ring: "ring-slate-200", badge: 0 },
           ].map((a) => (
             <Link key={a.href} href={a.href}>
-              <div className={`flex flex-col items-center gap-2 p-4 rounded-xl ring-1 ${a.ring} text-center transition-all cursor-pointer ${a.bg}`}>
+              <div className={`relative flex flex-col items-center gap-2 p-4 rounded-xl ring-1 ${a.ring} text-center transition-all cursor-pointer ${a.bg}`}>
                 <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-white shadow-sm ring-1 ring-slate-200">
                   <a.icon className={`h-4 w-4 ${a.color}`} />
                 </div>
                 <span className="text-xs font-medium text-slate-700">{a.label}</span>
+                {a.badge > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 flex items-center justify-center bg-rose-500 text-white text-[10px] font-bold rounded-full px-1.5">
+                    {a.badge}
+                  </span>
+                )}
               </div>
             </Link>
           ))}

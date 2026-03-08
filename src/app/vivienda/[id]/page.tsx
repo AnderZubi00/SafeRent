@@ -139,11 +139,9 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    {vivienda.verificada && (
-                      <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-emerald-200">
-                        <Shield className="h-3.5 w-3.5" /> Vivienda verificada
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-emerald-200">
+                      <Shield className="h-3.5 w-3.5" /> Vivienda verificada
+                    </span>
                     {vivienda.motivos.map((m: string) => (
                       <span key={m} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full ring-1 ring-indigo-200">
                         {m}
@@ -207,7 +205,7 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex items-center gap-2 text-sm text-slate-700 p-3 bg-slate-50 rounded-xl ring-1 ring-slate-200">
                   <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                  Duración mínima: {vivienda.duracion_minima}
+                  Estancia: {vivienda.estancia_minima ?? 1}–{vivienda.estancia_maxima ?? 11} meses
                 </div>
                 {vivienda.disponible_desde && (
                   <div className="flex items-center gap-2 text-sm text-slate-700 p-3 bg-slate-50 rounded-xl ring-1 ring-slate-200">

@@ -21,7 +21,6 @@ const STEPS = [
 ];
 
 const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
-const DURACION_OPCIONES = ["1 mes", "3 meses", "6 meses", "1 año"];
 
 interface FormData {
   titulo: string;
@@ -37,7 +36,8 @@ interface FormData {
   fianza_importe: string;
   motivos: string[];
   disponible_desde: string;
-  duracion_minima: string;
+  estancia_minima: string;
+  estancia_maxima: string;
 }
 
 export default function EditarViviendaPage() {
@@ -70,7 +70,8 @@ export default function EditarViviendaPage() {
     fianza_importe: "",
     motivos: [],
     disponible_desde: "",
-    duracion_minima: "1 mes",
+    estancia_minima: "1",
+    estancia_maxima: "11",
   });
 
   // Cargar datos existentes
@@ -97,7 +98,8 @@ export default function EditarViviendaPage() {
         fianza_importe: String(v.fianza_importe),
         motivos: v.motivos,
         disponible_desde: v.disponible_desde ?? "",
-        duracion_minima: v.duracion_minima,
+        estancia_minima: String(v.estancia_minima ?? 1),
+        estancia_maxima: String(v.estancia_maxima ?? 11),
       });
       setFotosExistentes(v.fotos ?? []);
       setCargando(false);
@@ -187,7 +189,8 @@ export default function EditarViviendaPage() {
         motivos: form.motivos,
         num_registro_vivienda: form.num_registro_vivienda,
         disponible_desde: form.disponible_desde || undefined,
-        duracion_minima: form.duracion_minima,
+        estancia_minima: Number(form.estancia_minima) || 1,
+        estancia_maxima: Number(form.estancia_maxima) || 11,
       },
       fotosNuevas.length > 0 ? fotosNuevas : undefined,
       fotosExistentes
@@ -498,20 +501,34 @@ export default function EditarViviendaPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Disponible desde</Label>
                   <Input type="date" value={form.disponible_desde} onChange={(e) => set("disponible_desde", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Duración mínima</Label>
-                  <select
-                    className="w-full rounded-md border border-input px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-ring"
-                    value={form.duracion_minima}
-                    onChange={(e) => set("duracion_minima", e.target.value)}
-                  >
-                    {DURACION_OPCIONES.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Estancia mínima <span className="text-slate-400 font-normal normal-case">(meses)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="11"
+                    value={form.estancia_minima}
+                    onChange={(e) => set("estancia_minima", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Estancia máxima <span className="text-slate-400 font-normal normal-case">(meses)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max="11"
+                    value={form.estancia_maxima}
+                    onChange={(e) => set("estancia_maxima", e.target.value)}
+                  />
                 </div>
               </div>
 

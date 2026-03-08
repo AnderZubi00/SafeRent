@@ -46,7 +46,8 @@ export default function BuscarPage() {
   const [precioMin, setPrecioMin] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [habFiltro, setHabFiltro] = useState(0); // 0 = todas
-  const [soloVerificadas, setSoloVerificadas] = useState(false);
+  // El campo verificada lo gestionará un admin en el futuro; por ahora se muestran todas las viviendas activas
+  const soloVerificadas = false;
   const [ordenFiltro, setOrdenFiltro] = useState("recientes");
 
   const cargarViviendas = useCallback(async () => {
@@ -92,7 +93,6 @@ export default function BuscarPage() {
   const filtrosActivos: ActiveFilter[] = [];
   if (ciudadFiltro !== "todas") filtrosActivos.push({ label: ciudadFiltro.split("-")[0], remove: () => setCiudadFiltro("todas") });
   if (motivoFiltro !== "todos") filtrosActivos.push({ label: motivoFiltro, remove: () => setMotivoFiltro("todos") });
-  if (soloVerificadas) filtrosActivos.push({ label: "Solo verificadas", remove: () => setSoloVerificadas(false) });
   if (precioMin) filtrosActivos.push({ label: `Desde ${precioMin}€`, remove: () => setPrecioMin("") });
   if (precioMax) filtrosActivos.push({ label: `Hasta ${precioMax}€`, remove: () => setPrecioMax("") });
   if (habFiltro > 0) filtrosActivos.push({ label: `${habFiltro}+ hab.`, remove: () => setHabFiltro(0) });
@@ -103,7 +103,6 @@ export default function BuscarPage() {
     setPrecioMin("");
     setPrecioMax("");
     setHabFiltro(0);
-    setSoloVerificadas(false);
     setBusqueda("");
   }
 
@@ -190,6 +189,17 @@ export default function BuscarPage() {
                 </button>
               </div>
 
+              {/* Banner verificación — siempre activo */}
+              <div className="mx-4 mt-4 flex items-center gap-2.5 bg-emerald-50 ring-1 ring-emerald-200 rounded-xl px-3.5 py-3">
+                <div className="h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                  <Shield className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-emerald-800">100% verificadas</p>
+                  <p className="text-[10px] text-emerald-600 leading-tight mt-0.5">Todas las viviendas han pasado el control de documentación</p>
+                </div>
+              </div>
+
               <div className="p-5 space-y-5">
                 {/* Precio */}
                 <div className="space-y-3">
@@ -259,26 +269,6 @@ export default function BuscarPage() {
                   </div>
                 </div>
 
-                <Separator className="bg-slate-100" />
-
-                {/* Extras */}
-                <div className="space-y-3">
-                  <label className="text-xs font-semibold text-slate-900">Extras</label>
-                  <div className="space-y-2">
-                    <label className="flex items-center gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
-                        checked={soloVerificadas}
-                        onChange={(e) => setSoloVerificadas(e.target.checked)}
-                      />
-                      <span className="text-sm font-medium text-slate-700 flex items-center gap-1.5">
-                        <Shield className="h-3.5 w-3.5 text-emerald-500" />
-                        Solo verificadas
-                      </span>
-                    </label>
-                  </div>
-                </div>
               </div>
 
               <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/50">
@@ -394,13 +384,11 @@ export default function BuscarPage() {
                           </>
                         )}
 
-                        {/* Badge verificada */}
+                        {/* Badge verificada — todas las viviendas de la plataforma están verificadas */}
                         <div className="absolute top-3 left-3 flex gap-2">
-                          {v.verificada && (
-                            <span className="flex items-center gap-1 bg-white/95 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ring-1 ring-emerald-200/50">
-                              <Shield className="h-3 w-3" /> Verificada
-                            </span>
-                          )}
+                          <span className="flex items-center gap-1 bg-white/95 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ring-1 ring-emerald-200/50">
+                            <Shield className="h-3 w-3" /> Verificada
+                          </span>
                         </div>
 
                         {/* Badge nueva */}

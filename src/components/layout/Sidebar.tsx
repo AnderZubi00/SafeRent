@@ -24,6 +24,7 @@ interface SidebarProps {
   role: Rol;
   userName: string;
   userEmail: string;
+  solicitudesPendientes?: number;
 }
 
 const NAV_ITEMS: Record<Rol, NavItem[]> = {
@@ -38,7 +39,7 @@ const NAV_ITEMS: Record<Rol, NavItem[]> = {
   propietario: [
     { label: "Mis Viviendas",   href: "/propietario",               icon: Building2 },
     { label: "Publicar",        href: "/propietario/publicar",      icon: PlusCircle },
-    { label: "Solicitudes",     href: "/propietario/solicitudes",   icon: Inbox, badge: 3 },
+    { label: "Solicitudes",     href: "/propietario/solicitudes",   icon: Inbox },
     { label: "Contratos",       href: "/propietario/contratos",     icon: FileText },
     { label: "Liquidaciones",   href: "/propietario/liquidaciones", icon: Wallet },
   ],
@@ -82,12 +83,17 @@ const ROLE_CONFIG = {
   },
 };
 
-export function Sidebar({ role, userName, userEmail }: SidebarProps) {
+export function Sidebar({ role, userName, userEmail, solicitudesPendientes }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { cerrarSesion } = useAuth();
   const config = ROLE_CONFIG[role];
-  const items = NAV_ITEMS[role];
+  const items = NAV_ITEMS[role].map((item) => {
+    if (role === "propietario" && item.href === "/propietario/solicitudes") {
+      return { ...item, badge: solicitudesPendientes && solicitudesPendientes > 0 ? solicitudesPendientes : undefined };
+    }
+    return item;
+  });
 
   const initials = userName
     .split(" ")

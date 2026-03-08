@@ -1,46 +1,348 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
-  Shield, CheckCircle2, Upload, FileText, CreditCard,
-  User, GraduationCap, Briefcase, MapPin, Calendar, ChevronRight, Lock,
+  Shield,
+  CheckCircle2,
+  Upload,
+  FileText,
+  CreditCard,
+  User,
+  GraduationCap,
+  Briefcase,
+  MapPin,
+  Calendar,
+  ChevronRight,
+  Lock,
+  Loader2,
+  Clock,
+  X,
+  ArrowLeft,
+  HelpCircle,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useInquilino } from "@/context/InquilinoContext";
+import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
+import {
+  crearSolicitud,
+  obtenerEstadoSolicitud,
+} from "@/lib/solicitudes";
+import {
+  firmarContrato,
+  obtenerContratoBySolicitud,
+} from "@/lib/contratos";
+import { registrarPago } from "@/lib/pagos";
+import SignatureCanvas from "react-signature-canvas";
 
 const STEPS = [
   { id: 1, label: "Verificación de identidad", icon: User, desc: "Confirma quién eres" },
   { id: 2, label: "Prueba de temporalidad", icon: GraduationCap, desc: "Justifica tu estancia" },
   { id: 3, label: "Firma del contrato", icon: FileText, desc: "Acuerdo legal digital" },
-  { id: 4, label: "Pago seguro", icon: CreditCard, desc: "Stripe · Escrow" },
+  { id: 4, label: "Pago seguro", icon: CreditCard, desc: "Primer mes + fianza" },
+];
+
+const MOTIVOS = [
+  { id: "Estudios", label: "Estudios", icon: GraduationCap, doc: "Matrícula universitaria" },
+  { id: "Trabajo temporal", label: "Trabajo temporal", icon: Briefcase, doc: "Contrato laboral" },
+  { id: "Otros", label: "Otros", icon: HelpCircle, doc: "Documento justificativo" },
 ];
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
-  const viviendaId = searchParams.get("vivienda") ?? "1";
+  const router = useRouter();
+  const { recargar } = useInquilino();
+  const viviendaId = searchParams.get("vivienda") ?? "";
+  const solicitudIdParam = searchParams.get("solicitud");
 
   const [step, setStep] = useState(1);
+  const [vivienda, setVivienda] = useState<Vivienda | null>(null);
+  const [cargandoVivienda, setCargandoVivienda] = useState(true);
+
+  // Step 1
+  const [docIdentidad, setDocIdentidad] = useState<File | null>(null);
+
+  // Step 2
   const [motivo, setMotivo] = useState<string | null>(null);
+  const [motivoDetalle, setMotivoDetalle] = useState("");
+  const [docJustificativo, setDocJustificativo] = useState<File | null>(null);
+  const [fechaEntrada, setFechaEntrada] = useState("");
+  const [fechaSalida, setFechaSalida] = useState("");
+
+  // Solicitud state
+  const [enviandoSolicitud, setEnviandoSolicitud] = useState(false);
+  const [solicitudId, setSolicitudId] = useState<string | null>(solicitudIdParam);
+  const [solicitudEstado, setSolicitudEstado] = useState<string | null>(null);
+  const [motivoRechazo, setMotivoRechazo] = useState<string | null>(null);
+  const [esperandoRespuesta, setEsperandoRespuesta] = useState(false);
+
+  // Step 3 - Contrato
+  const [contratoId, setContratoId] = useState<string | null>(null);
+  const [contratoPdfUrl, setContratoPdfUrl] = useState<string | null>(null);
+  const [firmando, setFirmando] = useState(false);
+  const [firmaCompleta, setFirmaCompleta] = useState(false);
+  const sigCanvasRef = useRef<SignatureCanvas | null>(null);
+
+  // Step 4 - Pago
+  const [procesandoPago, setProcesandoPago] = useState(false);
+  const [pagoCompletado, setPagoCompletado] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
+
+  // Load vivienda data
+  useEffect(() => {
+    if (!viviendaId) {
+      setCargandoVivienda(false);
+      return;
+    }
+    async function cargar() {
+      const { data } = await obtenerViviendaById(viviendaId);
+      setVivienda(data);
+      setCargandoVivienda(false);
+    }
+    cargar();
+  }, [viviendaId]);
+
+  // If returning with a solicitud ID, check its state
+  useEffect(() => {
+    if (solicitudIdParam) {
+      setSolicitudId(solicitudIdParam);
+      setEsperandoRespuesta(true);
+      setStep(2);
+    }
+  }, [solicitudIdParam]);
+
+  // Poll solicitud status
+  const pollStatus = useCallback(async () => {
+    if (!solicitudId) return;
+
+    const result = await obtenerEstadoSolicitud(solicitudId);
+    if (result.error) {
+      console.error("Error polling solicitud:", result.error);
+      if (result.estado === "ERROR") {
+        setError("No se pudo consultar el estado de la solicitud. Es posible que ya no exista.");
+        setEsperandoRespuesta(false);
+      }
+      return;
+    }
+
+    setSolicitudEstado(result.estado);
+
+    if (result.estado === "RECHAZADA") {
+      setMotivoRechazo(result.motivo_rechazo);
+      setEsperandoRespuesta(false);
+    } else if (result.estado === "ACEPTADA") {
+      if (result.contrato?.firmado_propietario) {
+        setContratoId(result.contrato.id);
+        setContratoPdfUrl(result.contrato.pdf_borrador_url);
+        setEsperandoRespuesta(false);
+        setStep(3);
+      }
+    }
+  }, [solicitudId]);
+
+  useEffect(() => {
+    if (!esperandoRespuesta || !solicitudId) return;
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 10000);
+    return () => clearInterval(interval);
+  }, [esperandoRespuesta, solicitudId, pollStatus]);
+
+  function handleFileSelect(
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: (f: File | null) => void
+  ) {
+    const file = e.target.files?.[0] ?? null;
+    setter(file);
+  }
+
+  async function handleEnviarSolicitud() {
+    if (!vivienda || !docIdentidad || !docJustificativo || !motivo) return;
+    if (motivo === "Otros" && !motivoDetalle.trim()) {
+      setError("Describe el motivo de tu estancia temporal");
+      return;
+    }
+    if (!fechaEntrada || !fechaSalida) {
+      setError("Selecciona las fechas de entrada y salida");
+      return;
+    }
+
+    setError(null);
+    setEnviandoSolicitud(true);
+
+    const { data, error: err } = await crearSolicitud(
+      {
+        vivienda_id: vivienda.id,
+        propietario_id: vivienda.propietario_id,
+        motivo,
+        motivo_detalle: motivo === "Otros" ? motivoDetalle : undefined,
+        fecha_entrada: fechaEntrada,
+        fecha_salida: fechaSalida,
+      },
+      docIdentidad,
+      docJustificativo
+    );
+
+    setEnviandoSolicitud(false);
+
+    if (err || !data) {
+      setError(err ?? "Error al enviar la solicitud");
+      return;
+    }
+
+    setSolicitudId(data.id);
+    setEsperandoRespuesta(true);
+    recargar();
+
+    // Persist solicitudId in URL for page refresh resilience
+    const url = new URL(window.location.href);
+    url.searchParams.set("solicitud", data.id);
+    window.history.replaceState({}, "", url.toString());
+
+    // Send email notification to propietario
+    try {
+      await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: "solicitud_recibida",
+          propietarioEmail: "propietario@saferent.es",
+          propietarioNombre: "Propietario",
+          inquilinoNombre: "Inquilino",
+          viviendaTitulo: vivienda.titulo,
+        }),
+      });
+    } catch {}
+  }
+
+  async function handleFirmarContrato() {
+    if (!contratoId || !sigCanvasRef.current) return;
+    if (sigCanvasRef.current.isEmpty()) {
+      setError("Dibuja tu firma en el recuadro");
+      return;
+    }
+
+    setError(null);
+    setFirmando(true);
+
+    const firmaBase64 = sigCanvasRef.current.toDataURL("image/png");
+    const { error: err } = await firmarContrato(contratoId, "inquilino", firmaBase64);
+
+    setFirmando(false);
+
+    if (err) {
+      setError(err);
+      return;
+    }
+
+    setFirmaCompleta(true);
+    setStep(4);
+    recargar();
+  }
+
+  async function handlePagar() {
+    if (!vivienda || !solicitudId) return;
+
+    setError(null);
+    setProcesandoPago(true);
+
+    await new Promise((r) => setTimeout(r, 2000));
+
+    const base = {
+      solicitud_id: solicitudId,
+      vivienda_id: vivienda.id,
+    };
+
+    const comision = Math.round(vivienda.precio_mes * 0.03 * 100) / 100;
+
+    const [r1, r2, r3] = await Promise.all([
+      registrarPago({ ...base, concepto: "primer_mes", importe: vivienda.precio_mes }),
+      registrarPago({ ...base, concepto: "fianza", importe: vivienda.fianza_importe }),
+      registrarPago({ ...base, concepto: "comision_servicio", importe: comision }),
+    ]);
+
+    const pagoError = r1.error || r2.error || r3.error;
+    if (pagoError) {
+      console.error("Error registrando pagos:", pagoError);
+    }
+
+    try {
+      await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: "pago_recibido",
+          propietarioEmail: "propietario@saferent.es",
+          propietarioNombre: "Propietario",
+          inquilinoNombre: "Inquilino",
+          viviendaTitulo: vivienda.titulo,
+          importe: `${calcularTotal().toLocaleString("es-ES")}€`,
+        }),
+      });
+    } catch {}
+
+    setProcesandoPago(false);
+    setPagoCompletado(true);
+    recargar();
+  }
+
+  function calcularMeses(): number {
+    if (!fechaEntrada || !fechaSalida) return 0;
+    const start = new Date(fechaEntrada);
+    const end = new Date(fechaSalida);
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+  }
+
+  function calcularTotal(): number {
+    if (!vivienda) return 0;
+    const meses = calcularMeses();
+    const renta = vivienda.precio_mes * meses;
+    const comision = renta * 0.03;
+    return renta + vivienda.fianza_importe + comision;
+  }
+
+  // Determine effective step for stepper display
+  const effectiveStep = esperandoRespuesta ? 2.5 : step;
+
+  if (cargandoVivienda) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (!vivienda) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-slate-500">Vivienda no encontrada.</p>
+        <Button variant="outline" onClick={() => router.push("/buscar")} className="mt-4">
+          Volver a buscar
+        </Button>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8">
+    <div className="p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-slate-900">Proceso de reserva</h1>
-          <p className="text-slate-500 mt-1">Vivienda #{viviendaId} · Piso luminoso en Parte Vieja · Donostia</p>
+          <p className="text-slate-500 mt-1">{vivienda.titulo} · {vivienda.ciudad}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Stepper + Contenido */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Stepper vertical */}
+            {/* Stepper */}
             <div className="flex flex-col gap-0">
               {STEPS.map((s, i) => {
-                const isCompleted = step > s.id;
-                const isCurrent = step === s.id;
+                const isCompleted = effectiveStep > s.id;
+                const isCurrent = Math.floor(effectiveStep) === s.id || (esperandoRespuesta && s.id === 2);
                 const Icon = s.icon;
                 return (
                   <div key={s.id} className="flex gap-4">
@@ -68,9 +370,21 @@ export default function CheckoutPage() {
               })}
             </div>
 
-            {/* Contenido del paso actual */}
+            {/* Error banner */}
+            {error && (
+              <div className="flex items-start gap-2 bg-rose-50 ring-1 ring-rose-200 rounded-xl px-4 py-3">
+                <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-rose-700">{error}</p>
+                <button onClick={() => setError(null)} className="ml-auto shrink-0">
+                  <X className="h-4 w-4 text-rose-400 hover:text-rose-600" />
+                </button>
+              </div>
+            )}
+
+            {/* Step content */}
             <Card className="ring-1 ring-slate-200 shadow-sm border-0">
-              {step === 1 && (
+              {/* STEP 1 - Verificación de identidad */}
+              {step === 1 && !esperandoRespuesta && (
                 <>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -78,28 +392,60 @@ export default function CheckoutPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <p className="text-sm text-slate-600">Necesitamos verificar tu identidad para garantizar la seguridad de todos en la plataforma.</p>
-                    <div className="grid grid-cols-2 gap-4">
-                      {["DNI / NIE", "Pasaporte"].map((doc) => (
-                        <div key={doc} className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:border-indigo-400 hover:bg-indigo-50/50 cursor-pointer transition-all group">
-                          <Upload className="h-8 w-8 text-slate-300 group-hover:text-indigo-500 mx-auto mb-2 transition-colors" />
-                          <p className="text-sm font-medium text-slate-700">{doc}</p>
-                          <p className="text-xs text-slate-400 mt-1">JPG, PNG o PDF · Max 5MB</p>
+                    <p className="text-sm text-slate-600">Sube una foto o escaneo de tu documento de identidad para verificar quién eres.</p>
+
+                    <div className="space-y-3">
+                      <label className="block">
+                        <div className={cn(
+                          "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
+                          docIdentidad ? "border-emerald-400 bg-emerald-50/50" : "border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50"
+                        )}>
+                          {docIdentidad ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                              <span className="text-sm font-medium text-emerald-700">{docIdentidad.name}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.preventDefault(); setDocIdentidad(null); }}
+                                className="ml-2 text-slate-400 hover:text-rose-500"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                              <p className="text-sm font-medium text-slate-700">DNI / NIE / Pasaporte</p>
+                              <p className="text-xs text-slate-400 mt-1">JPG, PNG o PDF · Max 5MB</p>
+                            </>
+                          )}
                         </div>
-                      ))}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          onChange={(e) => handleFileSelect(e, setDocIdentidad)}
+                        />
+                      </label>
                     </div>
+
                     <div className="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-3 flex items-start gap-2">
                       <Shield className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                       <p className="text-xs text-emerald-700">Tus datos están cifrados y protegidos. Solo los usamos para verificación KYC.</p>
                     </div>
-                    <Button onClick={() => setStep(2)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm">
+
+                    <Button
+                      onClick={() => { if (!docIdentidad) { setError("Sube tu documento de identidad"); return; } setError(null); setStep(2); }}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+                    >
                       Continuar <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
                   </CardContent>
                 </>
               )}
 
-              {step === 2 && (
+              {/* STEP 2 - Prueba de temporalidad */}
+              {step === 2 && !esperandoRespuesta && !solicitudId && (
                 <>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -108,12 +454,9 @@ export default function CheckoutPage() {
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <p className="text-sm text-slate-600">¿Cuál es el motivo de tu estancia temporal?</p>
+
                     <div className="grid grid-cols-3 gap-3">
-                      {[
-                        { id: "estudios", label: "Estudios", icon: GraduationCap, doc: "Matrícula universitaria" },
-                        { id: "trabajo", label: "Trabajo temporal", icon: Briefcase, doc: "Contrato laboral" },
-                        { id: "otros", label: "Otros", icon: FileText, doc: "Documento justificativo" },
-                      ].map((m) => (
+                      {MOTIVOS.map((m) => (
                         <button
                           key={m.id}
                           onClick={() => setMotivo(m.id)}
@@ -128,25 +471,180 @@ export default function CheckoutPage() {
                         </button>
                       ))}
                     </div>
-                    {motivo && (
-                      <div className="border-2 border-dashed border-indigo-300 rounded-xl p-6 text-center bg-indigo-50/50">
-                        <Upload className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-slate-700">Subir documento justificativo</p>
-                        <p className="text-xs text-slate-400 mt-1">PDF, JPG o PNG · Max 10MB</p>
-                        <Button size="sm" variant="outline" className="mt-3 ring-1 ring-slate-200 border-0">Seleccionar archivo</Button>
+
+                    {/* Motivo detalle for "Otros" */}
+                    {motivo === "Otros" && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                          Describe el motivo de tu estancia
+                        </label>
+                        <textarea
+                          value={motivoDetalle}
+                          onChange={(e) => setMotivoDetalle(e.target.value)}
+                          placeholder="Ej: Traslado temporal por reforma de mi vivienda habitual..."
+                          className="w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 text-sm outline-none focus:ring-indigo-500 min-h-[80px] resize-none"
+                        />
                       </div>
                     )}
+
+                    {/* Document upload */}
+                    {motivo && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                          Documento justificativo
+                        </label>
+                        <label className="block">
+                          <div className={cn(
+                            "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
+                            docJustificativo ? "border-emerald-400 bg-emerald-50/50" : "border-indigo-300 bg-indigo-50/50"
+                          )}>
+                            {docJustificativo ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                                <span className="text-sm font-medium text-emerald-700">{docJustificativo.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); setDocJustificativo(null); }}
+                                  className="ml-2 text-slate-400 hover:text-rose-500"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <Upload className="h-8 w-8 text-indigo-400 mx-auto mb-2" />
+                                <p className="text-sm font-medium text-slate-700">Subir {MOTIVOS.find(m => m.id === motivo)?.doc?.toLowerCase()}</p>
+                                <p className="text-xs text-slate-400 mt-1">PDF, JPG o PNG · Max 10MB</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".jpg,.jpeg,.png,.pdf"
+                            onChange={(e) => handleFileSelect(e, setDocJustificativo)}
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Dates */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha de entrada</label>
+                        <input
+                          type="date"
+                          value={fechaEntrada}
+                          onChange={(e) => setFechaEntrada(e.target.value)}
+                          className="w-full rounded-lg ring-1 ring-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha de salida</label>
+                        <input
+                          type="date"
+                          value={fechaSalida}
+                          onChange={(e) => setFechaSalida(e.target.value)}
+                          min={fechaEntrada}
+                          className="w-full rounded-lg ring-1 ring-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+
+                    {fechaEntrada && fechaSalida && (
+                      <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-3 text-sm text-slate-600">
+                        Estancia de <strong>{calcularMeses()} meses</strong>
+                        {vivienda && (
+                          <span className="text-slate-400"> (mín. {vivienda.estancia_minima}, máx. {vivienda.estancia_maxima} meses)</span>
+                        )}
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(1)} className="flex-1 ring-1 ring-slate-200 border-0">Atrás</Button>
-                      <Button onClick={() => setStep(3)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm" disabled={!motivo}>
-                        Continuar <ChevronRight className="ml-1 h-4 w-4" />
+                      <Button variant="outline" onClick={() => setStep(1)} className="flex-1 ring-1 ring-slate-200 border-0">
+                        <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
+                      </Button>
+                      <Button
+                        onClick={handleEnviarSolicitud}
+                        disabled={!motivo || !docJustificativo || !fechaEntrada || !fechaSalida || enviandoSolicitud}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+                      >
+                        {enviandoSolicitud ? (
+                          <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Enviando...</>
+                        ) : (
+                          <>Enviar solicitud <ChevronRight className="ml-1 h-4 w-4" /></>
+                        )}
                       </Button>
                     </div>
                   </CardContent>
                 </>
               )}
 
-              {step === 3 && (
+              {/* WAITING STATE - Esperando respuesta del propietario */}
+              {esperandoRespuesta && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Clock className="h-5 w-5 text-amber-500" /> Solicitud enviada
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div className="text-center py-8 space-y-4">
+                      <div className="h-16 w-16 rounded-full bg-amber-50 ring-1 ring-amber-200 flex items-center justify-center mx-auto">
+                        <Clock className="h-8 w-8 text-amber-500 animate-pulse" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">Esperando respuesta del propietario</h3>
+                        <p className="text-sm text-slate-500 mt-1">
+                          Hemos enviado tu solicitud al propietario. Te notificaremos cuando tome una decisión.
+                        </p>
+                      </div>
+                      <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-4">
+                        <div className="flex items-center justify-center gap-2 text-sm text-amber-700">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Comprobando estado automáticamente...
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="outline" onClick={() => router.push("/inquilino")} className="w-full ring-1 ring-slate-200 border-0">
+                      <ArrowLeft className="mr-1 h-4 w-4" /> Volver al panel
+                    </Button>
+                  </CardContent>
+                </>
+              )}
+
+              {/* REJECTED STATE */}
+              {solicitudEstado === "RECHAZADA" && !esperandoRespuesta && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-lg text-rose-700">
+                      <X className="h-5 w-5" /> Solicitud rechazada
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-5">
+                    <div className="text-center py-6 space-y-4">
+                      <div className="h-16 w-16 rounded-full bg-rose-50 ring-1 ring-rose-200 flex items-center justify-center mx-auto">
+                        <X className="h-8 w-8 text-rose-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">Tu solicitud no ha sido aceptada</h3>
+                        {motivoRechazo && (
+                          <div className="mt-3 bg-rose-50 ring-1 ring-rose-200 rounded-xl p-4 text-left">
+                            <p className="text-xs font-semibold text-rose-800 uppercase mb-1">Motivo del rechazo</p>
+                            <p className="text-sm text-rose-700">{motivoRechazo}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <Button onClick={() => router.push("/buscar")} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
+                      Buscar otras viviendas
+                    </Button>
+                  </CardContent>
+                </>
+              )}
+
+              {/* STEP 3 - Firma del contrato */}
+              {step === 3 && !esperandoRespuesta && solicitudEstado !== "RECHAZADA" && (
                 <>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -154,17 +652,44 @@ export default function CheckoutPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-4 h-48 flex flex-col items-center justify-center gap-2 text-slate-400">
-                      <FileText className="h-10 w-10" />
-                      <p className="text-sm font-medium">Vista previa del contrato</p>
-                      <p className="text-xs">Contrato de alquiler temporal · 10 meses</p>
+                    <div className="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-3 flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-emerald-700">El propietario ha aceptado tu solicitud y ha firmado el contrato. Revísalo y fírmalo tú también.</p>
                     </div>
+
+                    {/* Contract preview */}
+                    {contratoPdfUrl ? (
+                      <div className="space-y-2">
+                        <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl overflow-hidden">
+                          <iframe
+                            src={contratoPdfUrl}
+                            className="w-full h-64 border-0"
+                            title="Vista previa del contrato"
+                          />
+                        </div>
+                        <a
+                          href={contratoPdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
+                        >
+                          <FileText className="h-3 w-3" /> Abrir contrato completo en nueva pestaña
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-4 h-48 flex flex-col items-center justify-center gap-2 text-slate-400">
+                        <FileText className="h-10 w-10" />
+                        <p className="text-sm font-medium">Contrato generado</p>
+                      </div>
+                    )}
+
+                    {/* Contract summary */}
                     <div className="space-y-2 text-sm">
                       {[
-                        ["Vivienda", `Vivienda #${viviendaId} · Piso Parte Vieja, Donostia`],
-                        ["Duración", "01/09/2026 – 30/06/2027"],
-                        ["Renta mensual", "850€/mes"],
-                        ["Fianza", "850€"],
+                        ["Vivienda", `${vivienda.titulo} · ${vivienda.ciudad}`],
+                        ["Duración", fechaEntrada && fechaSalida ? `${new Date(fechaEntrada).toLocaleDateString("es-ES")} – ${new Date(fechaSalida).toLocaleDateString("es-ES")}` : "—"],
+                        ["Renta mensual", `${vivienda.precio_mes.toLocaleString("es-ES")}€/mes`],
+                        ["Fianza", `${vivienda.fianza_importe.toLocaleString("es-ES")}€`],
                       ].map(([k, v]) => (
                         <div key={k} className="flex justify-between py-1.5 border-b border-slate-200">
                           <span className="text-slate-500">{k}</span>
@@ -172,60 +697,157 @@ export default function CheckoutPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* Signature pad */}
+                    {!firmaCompleta && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tu firma digital</label>
+                        <div className="ring-1 ring-slate-200 rounded-xl overflow-hidden bg-white">
+                          <SignatureCanvas
+                            ref={sigCanvasRef}
+                            penColor="#1e293b"
+                            canvasProps={{
+                              className: "w-full h-32",
+                              style: { width: "100%", height: "128px" },
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => sigCanvasRef.current?.clear()}
+                          className="text-xs text-slate-500 hover:text-indigo-600"
+                        >
+                          Borrar firma
+                        </button>
+                      </div>
+                    )}
+
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(2)} className="flex-1 ring-1 ring-slate-200 border-0">Atrás</Button>
-                      <Button onClick={() => setStep(4)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm">
-                        Firmar digitalmente <ChevronRight className="ml-1 h-4 w-4" />
+                      <Button variant="outline" onClick={() => router.push("/inquilino")} className="flex-1 ring-1 ring-slate-200 border-0">
+                        <ArrowLeft className="mr-1 h-4 w-4" /> Volver
+                      </Button>
+                      <Button
+                        onClick={handleFirmarContrato}
+                        disabled={firmando || firmaCompleta}
+                        className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
+                      >
+                        {firmando ? (
+                          <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Firmando...</>
+                        ) : firmaCompleta ? (
+                          <><CheckCircle2 className="mr-1.5 h-4 w-4" /> Firmado</>
+                        ) : (
+                          <>Firmar digitalmente <ChevronRight className="ml-1 h-4 w-4" /></>
+                        )}
                       </Button>
                     </div>
                   </CardContent>
                 </>
               )}
 
+              {/* STEP 4 - Pago */}
               {step === 4 && (
                 <>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
-                      <CreditCard className="h-5 w-5 text-indigo-600" /> Pago seguro con Stripe
+                      <CreditCard className="h-5 w-5 text-indigo-600" /> Pago seguro
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-3 flex items-start gap-2">
-                      <Lock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                      <p className="text-xs text-amber-700 font-medium">Tu pago quedará retenido en escrow hasta que confirmes la llegada a la vivienda.</p>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-slate-500">NÚMERO DE TARJETA</label>
-                        <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2.5">
-                          <CreditCard className="h-4 w-4 text-slate-400" />
-                          <input placeholder="1234 5678 9012 3456" className="text-sm flex-1 outline-none text-slate-900 placeholder:text-slate-400" />
+                    {pagoCompletado ? (
+                      <div className="text-center py-8 space-y-4">
+                        <div className="h-16 w-16 rounded-full bg-emerald-50 ring-1 ring-emerald-200 flex items-center justify-center mx-auto">
+                          <CheckCircle2 className="h-8 w-8 text-emerald-500" />
                         </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-slate-900">¡Reserva completada!</h3>
+                          <p className="text-sm text-slate-500 mt-1">
+                            El pago se ha procesado correctamente. El propietario ha sido notificado.
+                          </p>
+                        </div>
+                        <div className="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-4 space-y-2 text-sm text-left">
+                          <div className="flex justify-between">
+                            <span className="text-emerald-700">Estado</span>
+                            <span className="font-semibold text-emerald-800">Pago retenido en escrow</span>
+                          </div>
+                          <p className="text-xs text-emerald-600">El pago se liberará al propietario cuando confirmes tu llegada a la vivienda.</p>
+                        </div>
+                        <Button onClick={() => router.push("/inquilino")} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white">
+                          Ir a mi panel
+                        </Button>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-500">VENCIMIENTO</label>
-                          <input placeholder="MM / AA" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none" />
+                    ) : (
+                      <>
+                        <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-3 flex items-start gap-2">
+                          <Lock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                          <p className="text-xs text-amber-700 font-medium">Tu pago quedará retenido en escrow hasta que confirmes la llegada a la vivienda.</p>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-xs font-semibold text-slate-500">CVV</label>
-                          <input placeholder="···" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none" />
+
+                        {/* Payment summary */}
+                        <div className="space-y-3 text-sm">
+                          <div className="flex justify-between py-1.5 border-b border-slate-200">
+                            <span className="text-slate-600">Primer mes de renta</span>
+                            <span className="font-medium">{vivienda.precio_mes.toLocaleString("es-ES")}€</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-200">
+                            <span className="text-slate-600">Fianza</span>
+                            <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
+                          </div>
+                          <div className="flex justify-between py-1.5 border-b border-slate-200">
+                            <span className="text-slate-600">Comisión SafeRent (3%)</span>
+                            <span className="font-medium">{(vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€</span>
+                          </div>
+                          <div className="flex justify-between py-2 font-bold text-slate-900 text-base">
+                            <span>Total a pagar</span>
+                            <span>{(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€</span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <Button variant="outline" onClick={() => setStep(3)} className="flex-1 ring-1 ring-slate-200 border-0">Atrás</Button>
-                      <Button className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm">
-                        Pagar 3.476,50€ <Lock className="ml-1.5 h-4 w-4" />
-                      </Button>
-                    </div>
+
+                        {/* Mock payment form */}
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Número de tarjeta</label>
+                            <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2.5">
+                              <CreditCard className="h-4 w-4 text-slate-400" />
+                              <input placeholder="4242 4242 4242 4242" className="text-sm flex-1 outline-none text-slate-900 placeholder:text-slate-400 bg-transparent" />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vencimiento</label>
+                              <input placeholder="MM / AA" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none bg-transparent" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CVV</label>
+                              <input placeholder="···" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none bg-transparent" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <Button variant="outline" onClick={() => setStep(3)} className="flex-1 ring-1 ring-slate-200 border-0">
+                            <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
+                          </Button>
+                          <Button
+                            onClick={handlePagar}
+                            disabled={procesandoPago}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm"
+                          >
+                            {procesandoPago ? (
+                              <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Procesando...</>
+                            ) : (
+                              <>Pagar {(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€ <Lock className="ml-1.5 h-4 w-4" /></>
+                            )}
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </CardContent>
                 </>
               )}
             </Card>
           </div>
 
-          {/* Resumen fijo */}
+          {/* Sidebar - Resumen de reserva */}
           <div className="lg:col-span-1">
             <Card className="ring-1 ring-slate-200 shadow-sm border-0 sticky top-8">
               <CardHeader className="pb-3">
@@ -233,42 +855,54 @@ export default function CheckoutPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-3 pb-3 border-b border-slate-200">
-                  <div className="h-12 w-12 bg-slate-100 rounded-xl flex items-center justify-center text-xl shrink-0 ring-1 ring-slate-200">🏙️</div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Piso Parte Vieja</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />Donostia</p>
+                  {vivienda.fotos?.[0] ? (
+                    <img src={vivienda.fotos[0]} alt={vivienda.titulo} className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200 shrink-0" />
+                  ) : (
+                    <div className="h-12 w-12 bg-slate-100 rounded-xl flex items-center justify-center text-xl shrink-0 ring-1 ring-slate-200">🏠</div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">{vivienda.titulo}</p>
+                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{vivienda.ciudad}</p>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Entrada</span>
-                    <span className="font-medium text-slate-900">01/09/2026</span>
+
+                {fechaEntrada && fechaSalida && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Entrada</span>
+                      <span className="font-medium text-slate-900">{new Date(fechaEntrada).toLocaleDateString("es-ES")}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Salida</span>
+                      <span className="font-medium text-slate-900">{new Date(fechaSalida).toLocaleDateString("es-ES")}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Salida</span>
-                    <span className="font-medium text-slate-900">30/06/2027</span>
-                  </div>
-                </div>
+                )}
+
                 <Separator className="bg-slate-200" />
+
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-slate-600">850€ × 10 meses</span>
-                    <span className="font-medium">8.500€</span>
+                    <span className="text-slate-600">{vivienda.precio_mes.toLocaleString("es-ES")}€ × {calcularMeses() || "—"} meses</span>
+                    <span className="font-medium">{calcularMeses() > 0 ? `${(vivienda.precio_mes * calcularMeses()).toLocaleString("es-ES")}€` : "—"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Fianza</span>
-                    <span className="font-medium">850€</span>
+                    <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Comisión (3%)</span>
-                    <span className="font-medium">255€</span>
+                    <span className="font-medium">{calcularMeses() > 0 ? `${(vivienda.precio_mes * calcularMeses() * 0.03).toLocaleString("es-ES")}€` : "—"}</span>
                   </div>
                 </div>
+
                 <Separator className="bg-slate-200" />
+
                 <div className="flex justify-between font-bold text-slate-900">
                   <span>Total</span>
-                  <span>9.605€</span>
+                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : "—"}</span>
                 </div>
+
                 <div className="bg-amber-50 ring-1 ring-amber-200 rounded-lg p-2.5 text-center">
                   <p className="text-xs font-semibold text-amber-800 flex items-center justify-center gap-1.5">
                     <Lock className="h-3.5 w-3.5" /> Pago retenido en Escrow

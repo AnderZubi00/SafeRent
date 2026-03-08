@@ -28,7 +28,9 @@ export interface Vivienda {
   verificada: boolean;
   activa: boolean;
   disponible_desde: string | null;
-  duracion_minima: string;
+  duracion_minima: string; // legacy — se mantiene por compatibilidad
+  estancia_minima: number;
+  estancia_maxima: number;
   fotos: string[];
   fecha_creacion: string;
 }
@@ -47,7 +49,8 @@ export interface PublicarViviendaInput {
   motivos: string[];
   num_registro_vivienda: string;
   disponible_desde?: string;
-  duracion_minima: string;
+  estancia_minima: number;
+  estancia_maxima: number;
 }
 
 export interface FiltrosVivienda {
