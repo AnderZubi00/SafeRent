@@ -111,7 +111,7 @@ export default function BuscarPage() {
       <Navbar />
 
       {/* Barra de búsqueda hero */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-white border-b border-slate-200 pt-[68px]">
         <div className="mx-auto max-w-7xl px-6 py-5">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-indigo-500 transition-all">

@@ -60,7 +60,7 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
     <div className="min-h-screen bg-white">
       <Navbar />
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-6 py-8 pt-[calc(68px+2rem)]">
         <Link href="/buscar" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 mb-6 transition-colors">
           <ChevronLeft className="h-4 w-4" /> Volver a resultados
         </Link>
