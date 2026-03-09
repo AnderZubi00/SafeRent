@@ -163,7 +163,7 @@ export function Navbar({ transparent = false }: { transparent?: boolean }) {
       {menuOpen && (
         <div className="md:hidden border-t border-slate-100 bg-white px-6 py-5 flex flex-col gap-4">
           {[
-            { href: "/buscar",         label: "Buscar vivienda" },
+            { href: "/buscar",         label: "Buscar alojamiento" },
             { href: "/#como-funciona", label: "Cómo funciona" },
             { href: "/#propietarios",  label: "Para propietarios" },
           ].map((item) => (

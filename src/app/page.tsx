@@ -92,7 +92,7 @@ export default function LandingPage() {
                 <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-md text-white/90 text-xs px-4 py-2 rounded-full mb-8 border border-white/10">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span style={{ fontWeight: 500, letterSpacing: "0.02em" }}>
-                    Plataforma oficial de alquiler temporal · España
+                    Plataforma oficial de alquiler temporal
                   </span>
                 </div>
               </MotionFadeInUp>
@@ -109,7 +109,7 @@ export default function LandingPage() {
 
               <MotionFadeInUp delay={0.1}>
                 <p className="text-base md:text-lg text-slate-300 mb-10 leading-[1.75] max-w-lg mx-auto">
-                  Conectamos estudiantes, trabajadores temporales y propietarios con contratos digitales, verificación KYC y pagos en escrow.
+                  Conectamos estudiantes, trabajadores temporales y propietarios.
                 </p>
               </MotionFadeInUp>
 
