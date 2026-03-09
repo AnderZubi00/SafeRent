@@ -1,6 +1,13 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend | null = null;
+
+function getResend(): Resend | null {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return null;
+  if (!resend) resend = new Resend(key);
+  return resend;
+}
 
 const FROM_EMAIL = "SafeRent <onboarding@resend.dev>";
 
@@ -11,13 +18,14 @@ interface EmailParams {
 }
 
 async function enviarEmail({ to, subject, html }: EmailParams) {
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResend();
+  if (!client) {
     console.log(`[Email mock] To: ${to} | Subject: ${subject}`);
     return;
   }
 
   try {
-    await resend.emails.send({
+    await client.emails.send({
       from: FROM_EMAIL,
       to,
       subject,
