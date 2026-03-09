@@ -57,7 +57,7 @@ export default function LandingPage() {
             </MotionFadeInUp>
             <MotionFadeInUp delay={0.1}>
               <p className="mt-6 text-lg text-slate-400 leading-relaxed max-w-xl mx-auto">
-                Conectamos estudiantes, trabajadores temporales y propietarios con contratos digitales, verificación KYC y pagos en escrow.
+                Conectamos estudiantes, trabajadores temporales y propietarios.
               </p>
             </MotionFadeInUp>
 
