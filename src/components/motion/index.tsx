@@ -5,7 +5,7 @@ import { motion, type HTMLMotionProps } from "framer-motion";
 const fadeInUp = {
   initial: { opacity: 0, y: 16 },
   animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] },
+  transition: { duration: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const },
 };
 
 const fadeIn = {
@@ -123,7 +123,7 @@ export function MotionCard({
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-24px" }}
-      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] }}
+      transition={{ duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const }}
       whileHover={{ y: -4, transition: { duration: 0.2 } }}
       className={className}
       {...props}
