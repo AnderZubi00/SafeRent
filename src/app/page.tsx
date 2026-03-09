@@ -108,15 +108,15 @@ export default function LandingPage() {
               </MotionFadeInUp>
 
               <MotionFadeInUp delay={0.1}>
-                <p className="text-base md:text-lg text-slate-300 mb-10 leading-[1.75] max-w-lg mx-auto">
-                  Conectamos estudiantes, trabajadores temporales y propietarios.
-                </p>
+              <p className="mt-6 text-lg text-slate-300 leading-relaxed max-w-xl mx-auto">
+                Conectamos estudiantes, trabajadores temporales y propietarios.
+              </p>
               </MotionFadeInUp>
 
               {/* Search Box */}
               <MotionFadeInUp delay={0.15}>
                 <div
-                  className="bg-white/97 backdrop-blur-xl rounded-2xl p-2 max-w-2xl mx-auto"
+                  className="mt-10 bg-white/97 backdrop-blur-xl rounded-2xl p-2 max-w-4xl mx-auto"
                   style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.15), 0 2px 12px rgba(0,0,0,0.1)" }}
                 >
                   <div className="flex flex-col sm:flex-row gap-0">
