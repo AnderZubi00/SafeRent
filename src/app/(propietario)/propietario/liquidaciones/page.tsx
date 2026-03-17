@@ -149,10 +149,7 @@ export default function LiquidacionesPage() {
                       const comision = p.importe * COMISION_RATE;
                       const neto = p.importe - comision;
                       const inquilinoNombre =
-                        (p as Record<string, unknown>).solicitudes &&
-                        ((p as Record<string, unknown>).solicitudes as Record<string, unknown>)?.usuarios
-                          ? ((p as Record<string, unknown>).solicitudes as { usuarios?: { nombre_completo: string } })?.usuarios?.nombre_completo
-                          : null;
+                        p.solicitudes?.usuarios?.nombre_completo ?? null;
 
                       return (
                         <TableRow key={p.id} className="hover:bg-slate-50/60">

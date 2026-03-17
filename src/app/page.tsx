@@ -1,8 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   MotionFadeInUp,
   MotionFadeIn,
@@ -11,183 +13,304 @@ import {
   MotionCard,
 } from "@/components/motion";
 import {
-  Search, Shield, FileText, CreditCard, MapPin, Star,
-  CheckCircle2, Building2, GraduationCap, Users, ArrowRight,
-  Home, TrendingUp, Lock,
+  Search, Shield, FileText, MapPin, Star,
+  CheckCircle2, Building2, Users, ArrowRight,
+  Lock, ChevronRight, Wifi, Calendar,
 } from "lucide-react";
+import { obtenerViviendas, type Vivienda } from "@/lib/viviendas";
 
-const VIVIENDAS_DESTACADAS = [
-  { id: "1", titulo: "Piso en Parte Vieja",  ciudad: "Donostia", precio: 850, habitaciones: 2, verificada: true, motivos: ["Estudios", "Trabajo"],  color: "from-indigo-500 to-indigo-700" },
-  { id: "2", titulo: "Estudio en Gros",       ciudad: "Donostia", precio: 620, habitaciones: 1, verificada: true, motivos: ["Estudios"],              color: "from-teal-500 to-teal-700" },
-  { id: "3", titulo: "Apartamento en Amara", ciudad: "Donostia", precio: 950, habitaciones: 3, verificada: true, motivos: ["Trabajo temporal", "Otros"],      color: "from-slate-500 to-slate-700" },
-];
+const HERO_BG = "https://images.unsplash.com/photo-1554746210-81e2321a3186?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxNYWRyaWQlMjBza3lsaW5lJTIwYnVpbGRpbmdzJTIwc3Vuc2V0JTIwd2FybXxlbnwxfHx8fDE3NzI5OTgxMDN8MA&ixlib=rb-4.1.0&q=80&w=1080";
+const COWORK_IMG = "https://images.unsplash.com/photo-1758873271949-742d6648b6b0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx5b3VuZyUyMHByb2Zlc3Npb25hbHMlMjBjb3dvcmtpbmclMjBtb2Rlcm4lMjBzcGFjZSUyMGxhcHRvcHxlbnwxfHx8fDE3NzI5OTcwOTJ8MA&ixlib=rb-4.1.0&q=80&w=1080";
 
-const METRICAS = [
-  { value: "+1.200", label: "Usuarios activos",      icon: Users },
-  { value: "340+",   label: "Viviendas verificadas", icon: Building2 },
-  { value: "98%",    label: "Satisfacción",           icon: Star },
-  { value: "0€",     label: "Comisión inquilino",     icon: TrendingUp },
-];
+function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
+  const [count, setCount] = useState(0);
+  const ref = useRef<HTMLSpanElement>(null);
+  const [hasAnimated, setHasAnimated] = useState(false);
+
+  useEffect(() => {
+    if (hasAnimated || !ref.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasAnimated(true);
+          let start = 0;
+          const duration = 2000;
+          const increment = target / (duration / 16);
+          const timer = setInterval(() => {
+            start += increment;
+            if (start >= target) {
+              setCount(target);
+              clearInterval(timer);
+            } else {
+              setCount(Math.floor(start));
+            }
+          }, 16);
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [hasAnimated, target]);
+
+  return <span ref={ref}>{count.toLocaleString("es-ES")}{suffix}</span>;
+}
 
 export default function LandingPage() {
+  const router = useRouter();
+  const [searchCity, setSearchCity] = useState("");
+  const [searchMotivo, setSearchMotivo] = useState("");
+  const [viviendas, setViviendas] = useState<Vivienda[]>([]);
+
+  useEffect(() => {
+    obtenerViviendas().then(({ data }) => setViviendas(data.slice(0, 3)));
+  }, []);
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (searchCity) params.set("ciudad", searchCity);
+    if (searchMotivo) params.set("motivo", searchMotivo);
+    router.push(`/buscar?${params.toString()}`);
+  };
+
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar transparent />
 
       {/* ── Hero ── */}
-      <section className="relative overflow-hidden bg-slate-950 py-24 lg:py-36">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(79,70,229,0.18),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(99,102,241,0.10),transparent_55%)]" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/30 to-transparent" />
+      <section className="relative min-h-screen flex items-center overflow-hidden">
+        <div className="absolute inset-0">
+          <img src={HERO_BG} alt="" className="w-full h-full object-cover" />
+          <div className="absolute inset-0 bg-linear-to-b from-slate-950/85 via-slate-900/70 to-slate-950/85" />
+          <div className="absolute inset-0 bg-slate-950/30" />
+        </div>
 
-        <div className="relative mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-3xl text-center">
-            <MotionFadeInUp>
-              <Badge className="mb-6 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/10">
-                Plataforma oficial de alquiler temporal
-              </Badge>
-            </MotionFadeInUp>
-            <MotionFadeInUp delay={0.05}>
-              <h1 className="text-5xl font-bold leading-[1.15] text-white lg:text-6xl">
-                Alquila con
-                <span className="block bg-gradient-to-r from-indigo-400 to-indigo-300 bg-clip-text text-transparent">
-                  total seguridad
-                </span>
-              </h1>
-            </MotionFadeInUp>
-            <MotionFadeInUp delay={0.1}>
-              <p className="mt-6 text-lg text-slate-400 leading-relaxed max-w-xl mx-auto">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 w-full pt-32 pb-20">
+          <div className="flex flex-col items-center text-center">
+            <div className="max-w-2xl">
+              <MotionFadeInUp>
+                <div className="inline-flex items-center gap-2.5 bg-white/10 backdrop-blur-md text-white/90 text-xs px-4 py-2 rounded-full mb-8 border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span style={{ fontWeight: 500, letterSpacing: "0.02em" }}>
+                    Plataforma oficial de alquiler temporal
+                  </span>
+                </div>
+              </MotionFadeInUp>
+
+              <MotionFadeInUp delay={0.05}>
+                <h1 className="text-5xl md:text-6xl lg:text-[4.25rem] text-white mb-6 leading-[1.05] tracking-tight font-light">
+                  Alquila con
+                  <br />
+                  <span className="bg-linear-to-r from-indigo-400 to-indigo-300 bg-clip-text text-transparent">
+                    total seguridad
+                  </span>
+                </h1>
+              </MotionFadeInUp>
+
+              <MotionFadeInUp delay={0.1}>
+              <p className="mt-6 text-lg text-slate-300 leading-relaxed max-w-xl mx-auto">
                 Conectamos estudiantes, trabajadores temporales y propietarios.
               </p>
-            </MotionFadeInUp>
+              </MotionFadeInUp>
 
-            {/* Buscador */}
-            <MotionFadeInUp delay={0.15}>
-              <div className="mt-10 bg-white rounded-2xl p-2 shadow-sm flex flex-col sm:flex-row gap-2 max-w-2xl mx-auto ring-1 ring-slate-200">
-                <div className="flex items-center gap-2 flex-1 px-3">
-                  <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
-                  <input
-                    type="text"
-                    placeholder="¿Dónde? Donostia, Bilbao, Vitoria..."
-                    className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 outline-none py-2.5"
-                  />
-                </div>
-                <div className="hidden sm:flex items-center gap-2 px-3 border-l border-slate-100">
-                  <GraduationCap className="h-4 w-4 text-slate-400 shrink-0" />
-                  <select className="bg-transparent text-sm text-slate-900 outline-none py-2.5 pr-6 cursor-pointer">
-                    <option>Motivo de estancia</option>
-                    <option>Estudios</option>
-                    <option>Trabajo temporal</option>
-                    <option>Otros</option>
-                  </select>
-                </div>
-                <Link href="/buscar">
-                  <Button className="bg-indigo-600 hover:bg-indigo-500 text-white w-full sm:w-auto px-6 rounded-xl font-semibold shadow-sm">
-                    <Search className="h-4 w-4 mr-2" />
-                    Buscar
-                  </Button>
-                </Link>
-              </div>
-            </MotionFadeInUp>
-
-            <MotionFadeIn delay={0.2}>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-500">
-                {["Contratos digitales", "Pago seguro en escrow", "Verificación KYC"].map((f) => (
-                  <div key={f} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                    {f}
+              {/* Search Box */}
+              <MotionFadeInUp delay={0.15}>
+                <div
+                  className="mt-10 bg-white/97 backdrop-blur-xl rounded-2xl p-2 max-w-4xl mx-auto"
+                  style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.15), 0 2px 12px rgba(0,0,0,0.1)" }}
+                >
+                  <div className="flex flex-col sm:flex-row gap-0">
+                    <div className="relative flex-1">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="¿Dónde? Donostia, Bilbao, Vitoria..."
+                        value={searchCity}
+                        onChange={e => setSearchCity(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3.5 text-sm text-slate-900 bg-transparent border-0 outline-none placeholder:text-slate-400"
+                        onKeyDown={e => e.key === "Enter" && handleSearch()}
+                      />
+                    </div>
+                    <div className="hidden sm:block w-px bg-slate-200/60 my-2.5" />
+                    <div className="relative flex-1">
+                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <select
+                        value={searchMotivo}
+                        onChange={e => setSearchMotivo(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3.5 text-sm text-slate-700 bg-transparent border-0 outline-none appearance-none cursor-pointer"
+                      >
+                        <option value="">Motivo de estancia</option>
+                        <option value="Estudios">Estudios</option>
+                        <option value="Trabajo temporal">Trabajo temporal</option>
+                        <option value="Otros">Otros</option>
+                      </select>
+                    </div>
+                    <Button
+                      onClick={handleSearch}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl m-1 px-6 flex items-center gap-2 h-11 cursor-pointer"
+                      style={{ fontWeight: 500, boxShadow: "0 2px 12px rgba(79,70,229,0.35)" }}
+                    >
+                      <Search className="w-4 h-4" />
+                      <span>Buscar</span>
+                    </Button>
                   </div>
-                ))}
-              </div>
-            </MotionFadeIn>
+                </div>
+              </MotionFadeInUp>
+
+              {/* Trust indicators */}
+              <MotionFadeIn delay={0.25}>
+                <div className="flex flex-wrap items-center justify-center gap-5 mt-8">
+                  {["Contratos digitales", "Pago seguro en escrow", "Verificación KYC"].map(item => (
+                    <span key={item} className="flex items-center gap-2 text-xs text-slate-400" style={{ fontWeight: 450 }}>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </MotionFadeIn>
+            </div>
           </div>
         </div>
 
-        {/* Métricas */}
-        <MotionStagger className="relative mx-auto max-w-4xl px-6 mt-20">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {METRICAS.map((m) => {
-              const Icon = m.icon;
-              return (
-                <MotionStaggerItem key={m.label}>
-                  <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] backdrop-blur-sm p-5 text-center ring-1 ring-white/5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20">
-                      <Icon className="h-5 w-5 text-indigo-400" />
-                    </div>
-                    <p className="text-2xl font-bold text-white">{m.value}</p>
-                    <p className="text-xs text-slate-400">{m.label}</p>
-                  </div>
-                </MotionStaggerItem>
-              );
-            })}
-          </div>
-        </MotionStagger>
+        {/* Bottom wave divider */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 80" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
+            <path d="M0 80L1440 80L1440 30C1200 60 960 10 720 30C480 50 240 0 0 30L0 80Z" fill="white" />
+          </svg>
+        </div>
       </section>
 
-      {/* ── Viviendas destacadas ── */}
-      <section className="py-20 bg-slate-50">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="flex items-end justify-between mb-10">
+      {/* ── Social Proof Bar ── */}
+      <section className="bg-white relative z-10 -mt-1">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div
+            className="bg-white rounded-2xl border border-slate-100 p-8 md:p-10 -mt-8 relative z-20"
+            style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}
+          >
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+              {[
+                { icon: Users, value: 14000, suffix: "+", label: "Inquilinos satisfechos", color: "text-indigo-600", bg: "bg-indigo-50" },
+                { icon: Building2, value: 2400, suffix: "+", label: "Viviendas verificadas", color: "text-emerald-600", bg: "bg-emerald-50" },
+                { icon: Star, value: 98, suffix: "%", label: "Contratos sin incidencias", color: "text-amber-600", bg: "bg-amber-50" },
+                { icon: Shield, value: 0, suffix: "€", label: "Comisión inquilino", color: "text-violet-600", bg: "bg-violet-50" },
+              ].map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <div key={stat.label} className="text-center">
+                    <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center mx-auto mb-3`}>
+                      <Icon className={`w-5 h-5 ${stat.color}`} />
+                    </div>
+                    <p className="text-slate-900 text-[1.75rem] font-light tracking-tight mb-1">
+                      {stat.value === 0 ? `0${stat.suffix}` : <AnimatedCounter target={stat.value} suffix={stat.suffix} />}
+                    </p>
+                    <p className="text-xs text-slate-500" style={{ fontWeight: 450, letterSpacing: "-0.01em" }}>{stat.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Featured Properties ── */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex items-end justify-between mb-14">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 mb-2">Viviendas verificadas</p>
-              <h2 className="text-3xl font-bold text-slate-900">Propiedades de confianza</h2>
-              <p className="mt-2 text-slate-500 max-w-md">Con número de registro oficial según la normativa de la Ventanilla Única 2026.</p>
+              <p className="text-xs text-indigo-600 uppercase tracking-[0.12em] mb-3 font-semibold">
+                Viviendas destacadas
+              </p>
+              <h2 className="text-4xl text-slate-900 leading-[1.1] tracking-tight font-light">
+                Recién verificadas
+              </h2>
             </div>
             <Link href="/buscar">
-              <Button variant="outline" className="hidden md:flex gap-2 ring-1 ring-slate-200 shadow-sm border-0">
-                Ver todas <ArrowRight className="h-4 w-4" />
+              <Button
+                variant="outline"
+                className="hidden md:flex items-center gap-2 text-sm rounded-lg border-slate-200 text-slate-600 hover:text-slate-900 h-9 cursor-pointer"
+                style={{ fontWeight: 500 }}
+              >
+                Ver todas <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             </Link>
           </div>
-          <MotionStagger className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {VIVIENDAS_DESTACADAS.map((v) => (
+
+          <MotionStagger className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {viviendas.map((v, idx) => (
               <MotionStaggerItem key={v.id}>
                 <MotionCard>
-                  <Link href={`/vivienda/${v.id}`} className="block">
-                    <Card className="group overflow-hidden ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow cursor-pointer">
-                      <div className={`relative h-48 bg-gradient-to-br ${v.color} flex items-center justify-center`}>
-                        <Home className="h-16 w-16 text-white/20" />
-                        <Building2 className="h-8 w-8 text-white/70 absolute" />
-                        {v.verificada && (
-                          <span className="absolute top-3 left-3 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-emerald-700 text-xs font-bold px-2.5 py-1.5 rounded-full ring-1 ring-emerald-200">
-                            <Shield className="h-3 w-3" /> Verificada
-                          </span>
+                  <Link href={`/vivienda/${v.id}`} className="group block">
+                    <article
+                      className="bg-white rounded-2xl overflow-hidden border border-slate-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+                      style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+                    >
+                      <div className="relative overflow-hidden" style={{ height: idx === 0 ? "240px" : "200px" }}>
+                        {v.fotos?.[0] ? (
+                          <img
+                            src={v.fotos[0]}
+                            alt={v.titulo}
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-linear-to-br from-indigo-500 to-indigo-700 flex items-center justify-center">
+                            <Building2 className="h-12 w-12 text-white/30" />
+                          </div>
                         )}
-                        <div className="absolute top-3 right-3 flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star key={s} className="h-3 w-3 fill-amber-400 text-amber-400" />
-                          ))}
+                        <div className="absolute inset-0 bg-linear-to-t from-slate-900/20 to-transparent" />
+                        <div className="absolute top-3 left-3">
+                          <span
+                            className="inline-flex items-center gap-1 bg-white/95 text-emerald-600 text-xs px-2.5 py-1 rounded-full"
+                            style={{ fontWeight: 600, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+                          >
+                            <CheckCircle2 className="w-3 h-3" /> Verificado
+                          </span>
                         </div>
                       </div>
-                      <CardContent className="p-5">
-                        <div className="flex items-start justify-between mb-3">
+
+                      <div className="p-5">
+                        <h3
+                          className="text-slate-900 text-sm leading-snug mb-1.5"
+                          style={{ fontWeight: 600, letterSpacing: "-0.01em" }}
+                        >
+                          {v.titulo}
+                        </h3>
+                        <div className="flex items-center gap-1 text-slate-400 text-xs mb-4">
+                          <MapPin className="w-3 h-3 shrink-0" />
+                          <span>{v.barrio ? `${v.barrio}, ` : ""}{v.ciudad?.split("-")[0]}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-400 mb-5 pb-5 border-b border-slate-50">
+                          <span>{v.m2} m²</span>
+                          <span className="text-slate-200">·</span>
+                          <span>{v.habitaciones} hab.</span>
+                          <span className="text-slate-200">·</span>
+                          <span>{v.banos} baño{v.banos !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
                           <div>
-                            <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">{v.titulo}</h3>
-                            <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
-                              <MapPin className="h-3 w-3" />{v.ciudad}
-                            </p>
+                            <span className="text-slate-900 text-xl font-light">
+                              {v.precio_mes.toLocaleString("es-ES")}€
+                            </span>
+                            <span className="text-slate-400 text-xs ml-1">/mes</span>
                           </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-xl font-bold text-slate-900">{v.precio}€</p>
-                            <p className="text-xs text-slate-400">/mes</p>
+                          <div className="flex gap-1">
+                            {v.motivos?.slice(0, 1).map(m => (
+                              <span key={m} className="text-xs text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md" style={{ fontWeight: 500 }}>
+                                {m}
+                              </span>
+                            ))}
                           </div>
                         </div>
-                        <div className="flex gap-1.5 flex-wrap">
-                          {v.motivos.map((m) => (
-                            <span key={m} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-full font-medium">{m}</span>
-                          ))}
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full ring-1 ring-slate-200">{v.habitaciones} hab.</span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </article>
                   </Link>
                 </MotionCard>
               </MotionStaggerItem>
             ))}
           </MotionStagger>
+
           <div className="mt-8 text-center md:hidden">
             <Link href="/buscar">
-              <Button variant="outline" className="gap-2 ring-1 ring-slate-200 shadow-sm border-0">
+              <Button variant="outline" className="gap-2 border-slate-200">
                 Ver todas las viviendas <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
@@ -195,139 +318,300 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Cómo funciona ── */}
-      <section id="como-funciona" className="py-24 bg-white">
-        <div className="mx-auto max-w-7xl px-6">
+      {/* ── How it works ── */}
+      <section id="como-funciona" className="py-24 bg-slate-50/50">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <MotionFadeInUp>
-            <div className="text-center mb-16">
-              <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 mb-2">Proceso simple</p>
-              <h2 className="text-3xl font-bold text-slate-900">Cómo funciona SafeRent</h2>
-              <p className="mt-3 text-slate-500 max-w-md mx-auto">Un proceso claro, transparente y seguro para todas las partes.</p>
+            <div className="text-center mb-20">
+              <p className="text-xs text-indigo-600 uppercase tracking-[0.12em] mb-3 font-semibold">
+                Proceso simplificado
+              </p>
+              <h2 className="text-4xl text-slate-900 tracking-tight font-light">
+                Cómo funciona SafeRent
+              </h2>
+              <p className="text-slate-500 mt-4 max-w-lg mx-auto text-sm leading-relaxed">
+                Desde la búsqueda hasta la firma del contrato, todo está diseñado para que tu alquiler sea seguro y sin fricciones.
+              </p>
             </div>
           </MotionFadeInUp>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-            {/* Inquilinos */}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+            {/* Tenant flow */}
             <div>
-              <div className="flex items-center gap-3 mb-8">
-                <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center ring-1 ring-emerald-200">
-                  <Users className="h-5 w-5 text-emerald-600" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">Para inquilinos</h3>
+              <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 text-xs px-3 py-1.5 rounded-full mb-8 font-semibold">
+                Para inquilinos
               </div>
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {[
-                  { n: "01", title: "Busca y elige",         desc: "Filtra por fecha, precio y motivo de estancia temporal.", icon: Search },
-                  { n: "02", title: "Verifica tu identidad", desc: "Sube tu DNI/NIE y el documento que justifica tu estancia.", icon: Shield },
-                  { n: "03", title: "Firma el contrato",     desc: "Contrato digital firmado con validez legal (Signaturit).", icon: FileText },
-                  { n: "04", title: "Paga con seguridad",    desc: "Tu pago queda retenido en escrow hasta confirmar la estancia.", icon: Lock },
-                ].map((s) => (
-                  <div key={s.n} className="flex gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 font-bold text-sm ring-1 ring-emerald-200">
-                      {s.n}
-                    </div>
-                    <div className="pt-0.5">
-                      <h4 className="font-semibold text-slate-900">{s.title}</h4>
-                      <p className="text-sm text-slate-500 mt-0.5 leading-relaxed">{s.desc}</p>
-                    </div>
-                  </div>
-                ))}
+                  { step: "01", title: "Busca y filtra", desc: "Explora viviendas verificadas con filtros por ciudad, precio, fechas y motivo de estancia.", icon: Search },
+                  { step: "02", title: "Verifica tu identidad", desc: "Sube tu DNI y prueba de temporalidad de forma segura. Proceso en 24 horas.", icon: Shield },
+                  { step: "03", title: "Firma digitalmente", desc: "El contrato de arrendamiento temporal se genera y firma digitalmente en minutos.", icon: CheckCircle2 },
+                  { step: "04", title: "Pago en escrow", desc: "Tu pago queda retenido hasta la confirmación de entrada, protegiendo a ambas partes.", icon: Lock },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <MotionFadeInUp key={item.step}>
+                      <div className="flex gap-5">
+                        <div className="shrink-0">
+                          <div
+                            className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[11px] font-bold"
+                            style={{ boxShadow: "0 2px 8px rgba(79,70,229,0.25)" }}
+                          >
+                            {item.step}
+                          </div>
+                        </div>
+                        <div className="pt-1.5">
+                          <h4 className="text-slate-900 mb-1.5 text-sm font-semibold">{item.title}</h4>
+                          <p className="text-sm text-slate-500 leading-relaxed">{item.desc}</p>
+                        </div>
+                      </div>
+                    </MotionFadeInUp>
+                  );
+                })}
               </div>
+              <Link href="/login" className="inline-block mt-10">
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 h-10 px-6 rounded-lg cursor-pointer"
+                  style={{ fontWeight: 500, boxShadow: "0 1px 3px rgba(79,70,229,0.25)" }}
+                >
+                  Empezar como inquilino <ChevronRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </div>
-            {/* Propietarios */}
+
+            {/* Owner card */}
             <div id="propietarios">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center ring-1 ring-indigo-200">
-                  <Building2 className="h-5 w-5 text-indigo-600" />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">Para propietarios</h3>
-              </div>
-              <div className="space-y-6">
-                {[
-                  { n: "01", title: "Publica tu vivienda",  desc: "Sube fotos, Nota Simple y número de registro oficial.", icon: Building2 },
-                  { n: "02", title: "Revisa solicitudes",   desc: "Acepta o rechaza inquilinos con perfil y documentos verificados.", icon: Users },
-                  { n: "03", title: "Firma el contrato",    desc: "Contrato generado automáticamente y firmado digitalmente.", icon: FileText },
-                  { n: "04", title: "Recibe el pago",       desc: "Stripe Connect transfiere el dinero directamente a tu cuenta.", icon: CreditCard },
-                ].map((s) => (
-                  <div key={s.n} className="flex gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 font-bold text-sm ring-1 ring-indigo-200">
-                      {s.n}
-                    </div>
-                    <div className="pt-0.5">
-                      <h4 className="font-semibold text-slate-900">{s.title}</h4>
-                      <p className="text-sm text-slate-500 mt-0.5 leading-relaxed">{s.desc}</p>
-                    </div>
+              <MotionFadeInUp>
+                <div
+                  className="bg-white rounded-2xl p-10 border border-slate-100"
+                  style={{ boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}
+                >
+                  <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs px-3 py-1.5 rounded-full mb-8 font-semibold">
+                    Para propietarios
                   </div>
-                ))}
-              </div>
+                  <h3 className="text-3xl text-slate-900 mb-4 leading-tight tracking-tight font-light">
+                    Alquila con total seguridad legal
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+                    SafeRent se encarga de la verificación de los inquilinos, la generación del contrato temporal conforme a la LAU y la gestión del cobro.
+                  </p>
+
+                  <div className="rounded-xl overflow-hidden mb-8">
+                    <img src={COWORK_IMG} alt="Modern workspace" className="w-full h-40 object-cover" />
+                  </div>
+
+                  <div className="space-y-5 mb-10">
+                    {[
+                      { icon: Shield, text: "Inquilinos verificados con documentación acreditada" },
+                      { icon: FileText, text: "Contratos de arrendamiento temporal (LAU art. 3)" },
+                      { icon: Lock, text: "Cobro garantizado a través de sistema de escrow" },
+                      { icon: CheckCircle2, text: "Panel de gestión completo para múltiples viviendas" },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.text} className="flex items-center gap-4">
+                          <div className="w-8 h-8 bg-slate-50 border border-slate-100 rounded-lg flex items-center justify-center shrink-0">
+                            <Icon className="w-4 h-4 text-slate-500" />
+                          </div>
+                          <p className="text-sm text-slate-700" style={{ fontWeight: 450 }}>{item.text}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <Link href="/login">
+                    <Button
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-center gap-2 h-11 rounded-lg cursor-pointer"
+                      style={{ fontWeight: 500 }}
+                    >
+                      Publicar mi vivienda <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </MotionFadeInUp>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Garantías ── */}
-      <section className="py-16 bg-slate-50 border-y border-slate-200">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {/* ── Testimonials ── */}
+      <section className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <MotionFadeInUp>
+            <div className="text-center mb-16">
+              <p className="text-xs text-indigo-600 uppercase tracking-[0.12em] mb-3 font-semibold">
+                Testimonios
+              </p>
+              <h2 className="text-4xl text-slate-900 tracking-tight font-light">
+                Lo que dicen nuestros usuarios
+              </h2>
+            </div>
+          </MotionFadeInUp>
+          <MotionStagger className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: Shield,   title: "Verificación KYC",   desc: "Identidad verificada para propietarios e inquilinos antes de cualquier transacción.", color: "text-indigo-600", bg: "bg-indigo-50",  ring: "ring-indigo-200" },
-              { icon: Lock,     title: "Pago en Escrow",      desc: "El dinero queda retenido de forma segura hasta que ambas partes confirman la estancia.", color: "text-emerald-600", bg: "bg-emerald-50", ring: "ring-emerald-200" },
-              { icon: FileText, title: "Contratos digitales", desc: "Contratos con validez legal firmados digitalmente vía Signaturit, sin papel.", color: "text-amber-600",   bg: "bg-amber-50",   ring: "ring-amber-200" },
-            ].map((g) => (
-              <div key={g.title} className={`rounded-2xl ${g.bg} p-6 ring-1 ${g.ring}`}>
-                <div className="h-11 w-11 rounded-xl bg-white flex items-center justify-center shadow-sm ring-1 ring-slate-200 mb-4">
-                  <g.icon className={`h-5 w-5 ${g.color}`} />
+              {
+                quote: "Encontré piso en 3 días. El proceso de verificación fue rapidísimo y el contrato se firmó digitalmente sin salir de casa.",
+                name: "Sofía M.",
+                role: "Estudiante de Erasmus",
+                stars: 5,
+                initials: "SM",
+                bg: "bg-indigo-100 text-indigo-700",
+              },
+              {
+                quote: "Como propietario tenía miedo de alquilar temporalmente. Con SafeRent, cada inquilino viene verificado y el pago está garantizado.",
+                name: "Roberto P.",
+                role: "Propietario, Madrid",
+                stars: 5,
+                initials: "RP",
+                bg: "bg-emerald-100 text-emerald-700",
+              },
+              {
+                quote: "Trabajo en remoto desde Barcelona 3 meses al año. SafeRent es la única plataforma que entiende mis necesidades como nómada digital.",
+                name: "Alex K.",
+                role: "Nómada digital",
+                stars: 5,
+                initials: "AK",
+                bg: "bg-amber-100 text-amber-700",
+              },
+            ].map((t) => (
+              <MotionStaggerItem key={t.name}>
+                <div
+                  className="bg-white rounded-2xl p-8 border border-slate-100 hover:border-slate-200 transition-all duration-300 hover:shadow-md h-full"
+                  style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+                >
+                  <div className="flex gap-0.5 mb-6">
+                    {Array(t.stars).fill(0).map((_, j) => (
+                      <Star key={j} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-slate-700 leading-[1.8] mb-6">
+                    &ldquo;{t.quote}&rdquo;
+                  </p>
+                  <div className="flex items-center gap-3 pt-5 border-t border-slate-100">
+                    <div className={`w-9 h-9 rounded-full ${t.bg} flex items-center justify-center`}>
+                      <span className="text-xs font-bold">{t.initials}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-900 font-semibold">{t.name}</p>
+                      <p className="text-xs text-slate-400">{t.role}</p>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="font-bold text-slate-900 mb-2">{g.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{g.desc}</p>
-              </div>
+              </MotionStaggerItem>
             ))}
-          </div>
+          </MotionStagger>
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section className="py-24 bg-slate-950 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(79,70,229,0.10),transparent_70%)]" />
-        <MotionFadeInUp className="relative mx-auto max-w-3xl px-6 text-center">
-          <Badge className="mb-6 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-            Empieza gratis hoy
-          </Badge>
-          <h2 className="text-4xl font-bold text-white mb-4">¿Listo para empezar?</h2>
-          <p className="text-slate-400 text-lg mb-10 max-w-xl mx-auto">
-            Únete a más de 1.200 usuarios que ya alquilan con total confianza en Euskadi.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/login">
-              <Button size="lg" className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-sm px-8">
-                Buscar alojamiento
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button size="lg" variant="outline" className="border-white/15 text-white hover:bg-white/8 px-8">
-                Publicar mi vivienda
-              </Button>
-            </Link>
-          </div>
-        </MotionFadeInUp>
+      <section className="py-24 relative overflow-hidden">
+        <div className="absolute inset-0 bg-slate-950" />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)",
+            backgroundSize: "40px 40px",
+          }}
+        />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-indigo-600/10 rounded-full blur-[120px]" />
+
+        <div className="relative z-10 max-w-3xl mx-auto px-6 lg:px-8 text-center">
+          <MotionFadeInUp>
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md text-white/80 text-xs px-3 py-1.5 rounded-full mb-6 border border-white/10">
+              <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span style={{ fontWeight: 500 }}>Sin comisión para inquilinos</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl text-white mb-5 tracking-tight font-light">
+              ¿Listo para empezar?
+            </h2>
+            <p className="text-slate-400 mb-10 text-base leading-relaxed max-w-xl mx-auto">
+              Únete a miles de estudiantes, trabajadores y propietarios que ya usan SafeRent para gestionar sus alquileres temporales de forma segura.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link href="/login">
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 h-12 rounded-xl text-sm cursor-pointer"
+                  style={{ fontWeight: 500, boxShadow: "0 4px 16px rgba(79,70,229,0.35)" }}
+                >
+                  Crear cuenta gratis
+                </Button>
+              </Link>
+              <Link href="/buscar">
+                <Button
+                  variant="outline"
+                  className="border-slate-700 text-slate-300 hover:bg-white/5 hover:text-white hover:border-slate-500 px-8 h-12 rounded-xl text-sm cursor-pointer"
+                  style={{ fontWeight: 500 }}
+                >
+                  Explorar viviendas
+                </Button>
+              </Link>
+            </div>
+          </MotionFadeInUp>
+        </div>
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-slate-200 py-10 bg-white">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-sm">
-              <Home className="h-3.5 w-3.5 text-white" />
+      <footer className="bg-slate-950 text-white">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+            <div className="col-span-1">
+              <div className="flex items-center gap-2.5 mb-5">
+                <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                  <Shield className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-white font-semibold text-[17px] tracking-tight">saferent</span>
+              </div>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                La plataforma de referencia para el alquiler temporal verificado en España.
+              </p>
             </div>
-            <span className="font-bold text-slate-900">SafeRent</span>
-            <span className="text-slate-300">·</span>
-            <span className="text-slate-400 text-sm">© 2026</span>
+            {[
+              {
+                title: "Producto",
+                links: [
+                  { label: "Buscar vivienda", href: "/buscar" },
+                  { label: "Publicar vivienda", href: "/login" },
+                  { label: "Cómo funciona", href: "/#como-funciona" },
+                ],
+              },
+              {
+                title: "Legal",
+                links: [
+                  { label: "Términos de uso", href: "#" },
+                  { label: "Política de privacidad", href: "#" },
+                  { label: "Política de cookies", href: "#" },
+                ],
+              },
+              {
+                title: "Soporte",
+                links: [
+                  { label: "Centro de ayuda", href: "#" },
+                  { label: "Contacto", href: "#" },
+                  { label: "Blog", href: "#" },
+                ],
+              },
+            ].map(col => (
+              <div key={col.title}>
+                <h4 className="text-xs text-slate-400 mb-4 uppercase tracking-widest font-semibold">{col.title}</h4>
+                <ul className="space-y-3">
+                  {col.links.map(link => (
+                    <li key={link.label}>
+                      <Link href={link.href} className="text-sm text-slate-500 hover:text-white transition-colors duration-200">
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-6 text-sm text-slate-400">
-            <Link href="#" className="hover:text-slate-700 transition-colors">Privacidad</Link>
-            <Link href="#" className="hover:text-slate-700 transition-colors">Términos</Link>
-            <Link href="#" className="hover:text-slate-700 transition-colors">Contacto</Link>
+          <div className="border-t border-slate-900 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-xs text-slate-600">
+              © 2026 SafeRent Technologies, S.L. Todos los derechos reservados.
+            </p>
+            <p className="text-xs text-slate-700 bg-slate-900 px-3 py-1.5 rounded-full">
+              Plataforma de alquiler temporal verificado
+            </p>
           </div>
-          <p className="text-xs text-slate-400">Plataforma de alquiler seguro en Euskadi</p>
         </div>
       </footer>
     </div>

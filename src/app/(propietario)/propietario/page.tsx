@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,18 @@ const MOTIVO_ICON: Record<string, typeof Users> = {
 };
 
 export default function PropietarioInicio() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    }>
+      <PropietarioInicioContent />
+    </Suspense>
+  );
+}
+
+function PropietarioInicioContent() {
   const searchParams = useSearchParams();
   const publicada = searchParams.get("publicada");
   const editada = searchParams.get("editada");
