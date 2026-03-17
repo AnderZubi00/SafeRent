@@ -51,7 +51,7 @@ Read the linked skill file **before starting** when a task matches these trigger
 | Layer | Technology |
 |-------|-----------|
 | Framework | Next.js 15 (App Router) + TypeScript |
-| Styling | Tailwind CSS v4 + shadcn/ui (Radix UI) |
+| Styling | Tailwind CSS v4 + shadcn/ui (Radix UI) + Magic UI |
 | Backend | Supabase (Postgres + Storage + Auth) |
 | Payments | Stripe Connect (escrow model) |
 | Contracts | Signaturit (digital signature) + PDF generation |
