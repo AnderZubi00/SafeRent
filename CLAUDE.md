@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent Orchestration
+
+This project uses a skill-based lazy loading system. Before starting any non-trivial task,
+read `AGENT.md` for routing rules, then load only the relevant skill from `.agent/skills/`:
+
+| Domain | Skill file |
+|---|---|
+| UI / Visual Design / Animations | `.agent/skills/frontend-design/SKILL.md` |
+| Next.js / React / Performance / Deployment | `.agent/skills/vercel-react-best-practices/SKILL.md` |
+
 ## Commands
 
 ```bash

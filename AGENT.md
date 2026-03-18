@@ -14,14 +14,21 @@ Read the linked skill file **before starting** when a task matches these trigger
 **Triggers:** UI components, visual design, layout, colors, typography, animations, Framer Motion wrappers, new pages/screens, design systems, component aesthetics.
 
 ```
-→ READ FIRST: .agents/skills/frontend-design/SKILL.md
+→ READ FIRST: .agent/skills/frontend-design/SKILL.md
 ```
 
 ### Next.js / React / Performance / Deployment
 **Triggers:** React components, Next.js pages, App Router patterns, Server Components, data fetching, bundle optimization, API routes, Vercel deployment, hydration, caching.
 
 ```
-→ READ FIRST: .agents/skills/vercel-react-best-practices/SKILL.md
+→ READ FIRST: .agent/skills/vercel-react-best-practices/SKILL.md
+```
+
+### Architecture / Route Structure / Context / Types
+**Triggers:** nueva página, nuevo route group, nuevo context provider, path aliases, tipos compartidos, estructura de carpetas.
+
+```
+→ READ FIRST: .agent/skills/saferent-architecture/SKILL.md
 ```
 
 ### Architectural / Security-Sensitive Modules
@@ -175,8 +182,12 @@ These are non-negotiable constraints for all AI-assisted work on this project.
 
 ### Skill files
 ```
-.agents/skills/frontend-design/SKILL.md
-.agents/skills/vercel-react-best-practices/SKILL.md
+.agent/skills/saferent-architecture/SKILL.md        — route groups, contexts, types, path aliases
+.agent/skills/frontend-design/SKILL.md              — UI, shadcn, Magic UI, animaciones
+.agent/skills/vercel-react-best-practices/SKILL.md  — Next.js, React, data fetching, performance
+.agent/skills/supabase-saferent/SKILL.md            — queries, RLS, storage, auth, realtime
+.agent/skills/stripe-connect-saferent/SKILL.md      — pagos, escrow, webhooks
+.agent/skills/saferent-business-rules/SKILL.md      — lifecycle solicitud→contrato→pago
 ```
 
 ### Key source locations
@@ -195,9 +206,13 @@ src/components/layout/             — Sidebar, TopBar
 
 ### Decision checklist (before starting any task)
 
+- [ ] Does this touch a new page / route / context / type? → Load `saferent-architecture` skill
 - [ ] Does this touch UI? → Load `frontend-design` skill
 - [ ] Does this touch Next.js / data fetching / performance? → Load `vercel-react-best-practices` skill
-- [ ] Does this touch auth / KYC / Stripe / schema? → `mem_search` first
+- [ ] Does this touch Supabase / RLS / storage / auth? → Load `supabase-saferent` skill
+- [ ] Does this touch solicitudes / contratos / pagos lifecycle? → Load `saferent-business-rules` skill
+- [ ] Does this touch Stripe / escrow / webhooks? → Load `stripe-connect-saferent` skill
+- [ ] Does this touch auth / KYC / Stripe / schema (architectural)? → `mem_search` first
 - [ ] Does this touch 3+ files or introduce a new feature? → Plan Mode first
 - [ ] Am I mixing role data? → Stop and isolate
 - [ ] Am I using an undocumented API? → Verify via Context7 docs

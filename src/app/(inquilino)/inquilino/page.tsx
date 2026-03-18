@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MagicCard } from "@/components/magicui/magic-card";
+import { NumberTicker } from "@/components/magicui/number-ticker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -208,7 +210,7 @@ export default function InquilinoInicio() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
+        <MagicCard className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow" gradientColor="#6366f110">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-emerald-500/10">
@@ -223,12 +225,14 @@ export default function InquilinoInicio() {
                 {solicitudesActivas > 0 ? "En curso" : "Sin actividad"}
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-900">{solicitudesActivas}</p>
+            <p className="text-2xl font-bold text-slate-900">
+              {solicitudesActivas > 0 ? <NumberTicker value={solicitudesActivas} /> : 0}
+            </p>
             <p className="text-xs text-slate-500 mt-0.5">Solicitudes activas</p>
           </CardContent>
-        </Card>
+        </MagicCard>
 
-        <Card className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
+        <MagicCard className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow" gradientColor="#6366f110">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-amber-500/10">
@@ -243,12 +247,14 @@ export default function InquilinoInicio() {
                 {contratosPendientes > 0 ? "Requiere acción" : "Al día"}
               </span>
             </div>
-            <p className="text-2xl font-bold text-slate-900">{contratosPendientes}</p>
+            <p className="text-2xl font-bold text-slate-900">
+              {contratosPendientes > 0 ? <NumberTicker value={contratosPendientes} /> : 0}
+            </p>
             <p className="text-xs text-slate-500 mt-0.5">Contratos pendientes</p>
           </CardContent>
-        </Card>
+        </MagicCard>
 
-        <Card className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
+        <MagicCard className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow" gradientColor="#6366f110">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-indigo-500/10">
@@ -259,11 +265,11 @@ export default function InquilinoInicio() {
               </span>
             </div>
             <p className="text-2xl font-bold text-slate-900">
-              {proximaEstancia ? `${proximaEstancia.viviendas?.precio_mes?.toLocaleString("es-ES")}€` : "--"}
+              {proximaEstancia ? <><NumberTicker value={proximaEstancia.viviendas?.precio_mes ?? 0} />€</> : "--"}
             </p>
             <p className="text-xs text-slate-500 mt-0.5">Próximo pago</p>
           </CardContent>
-        </Card>
+        </MagicCard>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

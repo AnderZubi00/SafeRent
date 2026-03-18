@@ -1,4 +1,8 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MagicCard } from "@/components/magicui/magic-card";
+import { NumberTicker } from "@/components/magicui/number-ticker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -25,10 +29,10 @@ const ESTADO: Record<string, { label: string; bg: string; text: string; dot: str
 };
 
 const STATS = [
-  { label: "Total usuarios",    value: "247",    delta: "+12 este mes",     icon: Users,         iconBg: "bg-indigo-500/10",  iconColor: "text-indigo-600",  up: true },
-  { label: "Viviendas activas", value: "84",     delta: "+5 esta semana",   icon: Building2,     iconBg: "bg-emerald-500/10", iconColor: "text-emerald-600", up: true },
-  { label: "Volumen Escrow",    value: "42.8K€", delta: "Retenido ahora",   icon: CreditCard,    iconBg: "bg-amber-500/10",   iconColor: "text-amber-600",   up: true },
-  { label: "Disputas abiertas", value: "2",      delta: "Requieren acción", icon: AlertTriangle, iconBg: "bg-rose-500/10",    iconColor: "text-rose-600",    up: false },
+  { label: "Total usuarios",    value: "247",    numericValue: 247,   suffix: "",  delta: "+12 este mes",     icon: Users,         iconBg: "bg-indigo-500/10",  iconColor: "text-indigo-600",  up: true },
+  { label: "Viviendas activas", value: "84",     numericValue: 84,    suffix: "",  delta: "+5 esta semana",   icon: Building2,     iconBg: "bg-emerald-500/10", iconColor: "text-emerald-600", up: true },
+  { label: "Volumen Escrow",    value: "42.8K€", numericValue: 42800, suffix: "€", delta: "Retenido ahora",   icon: CreditCard,    iconBg: "bg-amber-500/10",   iconColor: "text-amber-600",   up: true },
+  { label: "Disputas abiertas", value: "2",      numericValue: 2,     suffix: "",  delta: "Requieren acción", icon: AlertTriangle, iconBg: "bg-rose-500/10",    iconColor: "text-rose-600",    up: false },
 ];
 
 export default function AdminGlobal() {
@@ -64,7 +68,7 @@ export default function AdminGlobal() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map((s) => (
-          <Card key={s.label} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
+          <MagicCard key={s.label} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow" gradientColor="#6366f110">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${s.iconBg}`}>
@@ -75,10 +79,12 @@ export default function AdminGlobal() {
                   {s.delta}
                 </span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+              <p className="text-2xl font-bold text-slate-900">
+                <NumberTicker value={s.numericValue} />{s.suffix}
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
             </CardContent>
-          </Card>
+          </MagicCard>
         ))}
       </div>
 

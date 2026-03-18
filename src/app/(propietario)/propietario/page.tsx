@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import { MagicCard } from "@/components/magicui/magic-card";
+import { NumberTicker } from "@/components/magicui/number-ticker";
 import { Button } from "@/components/ui/button";
 import {
   MapPin, Plus, Users, Wallet, CheckCircle2, TrendingUp,
@@ -166,7 +168,7 @@ function PropietarioInicioContent() {
             positive: ingresosMes > 0,
           },
         ].map((s) => (
-          <Card key={s.label} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow">
+          <MagicCard key={s.label} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow" gradientColor="#6366f110">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-3">
                 <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${s.iconBg}`}>
@@ -180,10 +182,14 @@ function PropietarioInicioContent() {
                   {s.delta}
                 </span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">{s.value}</p>
+              <p className="text-2xl font-bold text-slate-900">
+                {s.label === "Ingresos este mes"
+                  ? <><NumberTicker value={ingresosMes} />€</>
+                  : <NumberTicker value={Number(s.value)} />}
+              </p>
               <p className="text-xs text-slate-500 mt-0.5">{s.label}</p>
             </CardContent>
-          </Card>
+          </MagicCard>
         ))}
       </div>
 
