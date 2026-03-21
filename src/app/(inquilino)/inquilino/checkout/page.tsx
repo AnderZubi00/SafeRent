@@ -26,6 +26,9 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { KycMobilePanel } from "@/components/kyc/KycMobilePanel";
+import { KycResultBadge } from "@/components/kyc/KycResultBadge";
+import type { KycMobileResultado } from "@/hooks/useKycMobileSession";
 import { useInquilino } from "@/context/InquilinoContext";
 import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
 import {
@@ -76,7 +79,7 @@ function CheckoutContent() {
   const [cargandoVivienda, setCargandoVivienda] = useState(true);
 
   // Step 1
-  const [docIdentidad, setDocIdentidad] = useState<File | null>(null);
+  const [kycResultado, setKycResultado] = useState<KycMobileResultado | null>(null);
 
   // Step 2
   const [motivo, setMotivo] = useState<string | null>(null);
@@ -174,7 +177,18 @@ function CheckoutContent() {
   }
 
   async function handleEnviarSolicitud() {
-    if (!vivienda || !docIdentidad || !docJustificativo || !motivo) return;
+    if (!vivienda || !kycResultado || !docJustificativo || !motivo) return;
+
+    const kycData = JSON.stringify({
+      verificado_via: "kyc_movil",
+      safe_score: kycResultado.safeScore,
+      nombre: kycResultado.nombreExtraido,
+      apellidos: kycResultado.apellidosExtraidos,
+      dni: kycResultado.dniExtraido,
+      tipo_documento: kycResultado.tipoDocumento,
+    });
+    const blob = new Blob([kycData], { type: "application/json" });
+    const identidadFile = new File([blob], "kyc-verificacion-movil.json", { type: "application/json" });
     if (motivo === "Otros" && !motivoDetalle.trim()) {
       setError("Describe el motivo de tu estancia temporal");
       return;
@@ -196,7 +210,7 @@ function CheckoutContent() {
         fecha_entrada: fechaEntrada,
         fecha_salida: fechaSalida,
       },
-      docIdentidad,
+      identidadFile,
       docJustificativo
     );
 
@@ -404,54 +418,34 @@ function CheckoutContent() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-5">
-                    <p className="text-sm text-slate-600">Sube una foto o escaneo de tu documento de identidad para verificar quién eres.</p>
+                    {/* Result badge (shown when already verified) */}
+                    {kycResultado && (
+                      <div className="space-y-3">
+                        <KycResultBadge resultado={kycResultado} />
+                        <button
+                          onClick={() => setKycResultado(null)}
+                          className="text-xs text-slate-500 hover:text-slate-700"
+                        >
+                          Verificar otro documento
+                        </button>
+                      </div>
+                    )}
 
-                    <div className="space-y-3">
-                      <label className="block">
-                        <div className={cn(
-                          "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all",
-                          docIdentidad ? "border-emerald-400 bg-emerald-50/50" : "border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/50"
-                        )}>
-                          {docIdentidad ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                              <span className="text-sm font-medium text-emerald-700">{docIdentidad.name}</span>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.preventDefault(); setDocIdentidad(null); }}
-                                className="ml-2 text-slate-400 hover:text-rose-500"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <Upload className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                              <p className="text-sm font-medium text-slate-700">DNI / NIE / Pasaporte</p>
-                              <p className="text-xs text-slate-400 mt-1">JPG, PNG o PDF · Max 5MB</p>
-                            </>
-                          )}
-                        </div>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".jpg,.jpeg,.png,.pdf"
-                          onChange={(e) => handleFileSelect(e, setDocIdentidad)}
-                        />
-                      </label>
-                    </div>
+                    {/* Mobile QR — única opción */}
+                    {!kycResultado && (
+                      <KycMobilePanel
+                        onCompletado={(resultado) => {
+                          setKycResultado(resultado);
+                          setStep(2);
+                        }}
+                      />
+                    )}
 
+                    {/* Privacy notice */}
                     <div className="bg-emerald-50 ring-1 ring-emerald-200 rounded-xl p-3 flex items-start gap-2">
                       <Shield className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                       <p className="text-xs text-emerald-700">Tus datos están cifrados y protegidos. Solo los usamos para verificación KYC.</p>
                     </div>
-
-                    <Button
-                      onClick={() => { if (!docIdentidad) { setError("Sube tu documento de identidad"); return; } setError(null); setStep(2); }}
-                      className="w-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm"
-                    >
-                      Continuar <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
                   </CardContent>
                 </>
               )}
