@@ -31,8 +31,17 @@ Read the linked skill file **before starting** when a task matches these trigger
 → READ FIRST: .agent/skills/saferent-architecture/SKILL.md
 ```
 
+### KYC / OCR / MRZ / Identity Verification
+**Triggers:** KYC, verificación identidad, DNI, OCR, MRZ, kyc_sesiones, analizar, check digit, scoring, ICAO, numero_soporte, BAC, NFC.
+
+```
+→ READ FIRST: .agent/skills/kyc-ocr-saferent/SKILL.md
+→ EXECUTE mem_search("saferent:kyc") before starting
+→ EXECUTE mem_save after completing (see Section 3 for format)
+```
+
 ### Architectural / Security-Sensitive Modules
-**Triggers:** auth, KYC flow, Stripe Connect, Supabase schema changes, Signaturit integration, escrow logic, RLS policies, role-based access control.
+**Triggers:** auth, Stripe Connect, Supabase schema changes, Signaturit integration, escrow logic, RLS policies, role-based access control.
 
 ```
 → EXECUTE mem_search("saferent:[topic]") before starting
@@ -188,6 +197,7 @@ These are non-negotiable constraints for all AI-assisted work on this project.
 .agent/skills/supabase-saferent/SKILL.md            — queries, RLS, storage, auth, realtime
 .agent/skills/stripe-connect-saferent/SKILL.md      — pagos, escrow, webhooks
 .agent/skills/saferent-business-rules/SKILL.md      — lifecycle solicitud→contrato→pago
+.agent/skills/kyc-ocr-saferent/SKILL.md             — KYC pipeline, GPT-4o OCR, MRZ/ICAO, scoring, kyc_sesiones
 ```
 
 ### Key source locations
@@ -212,7 +222,8 @@ src/components/layout/             — Sidebar, TopBar
 - [ ] Does this touch Supabase / RLS / storage / auth? → Load `supabase-saferent` skill
 - [ ] Does this touch solicitudes / contratos / pagos lifecycle? → Load `saferent-business-rules` skill
 - [ ] Does this touch Stripe / escrow / webhooks? → Load `stripe-connect-saferent` skill
-- [ ] Does this touch auth / KYC / Stripe / schema (architectural)? → `mem_search` first
+- [ ] Does this touch KYC / OCR / MRZ / kyc_sesiones? → Load `kyc-ocr-saferent` skill + `mem_search("saferent:kyc")`
+- [ ] Does this touch auth / Stripe / schema (architectural)? → `mem_search` first
 - [ ] Does this touch 3+ files or introduce a new feature? → Plan Mode first
 - [ ] Am I mixing role data? → Stop and isolate
 - [ ] Am I using an undocumented API? → Verify via Context7 docs
