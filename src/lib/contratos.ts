@@ -1,11 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const BUCKET_PDF = "contratos-pdf";
-
-function getPublicPdfUrl(path: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET_PDF}/${path}`;
-}
+import { api } from "@/lib/api";
 
 export interface ContratoDigital {
   id: string;
@@ -47,79 +40,56 @@ export interface DatosContrato {
 
 export async function crearContrato(
   solicitudId: string,
-  pdfUrl: string
 ): Promise<{ data: ContratoDigital | null; error: string | null }> {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("contratos_digitales")
-    .insert({
-      solicitud_id: solicitudId,
-      pdf_borrador_url: pdfUrl,
-      firmado_propietario: false,
-      firmado_inquilino: false,
-    })
-    .select()
-    .single();
-
-  if (error) return { data: null, error: error.message };
-  return { data: data as ContratoDigital, error: null };
+  try {
+    const result = await api.post<{ contrato: ContratoDigital; pdfUrl: string }>(
+      "/contratos/generar",
+      { solicitudId }
+    );
+    return { data: result.contrato, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function firmarContrato(
   contratoId: string,
-  rol: "propietario" | "inquilino",
+  _rol: "propietario" | "inquilino",
   firmaBase64: string
 ): Promise<{ error: string | null }> {
-  const supabase = createClient();
-
-  const updates: Record<string, unknown> = {};
-  if (rol === "propietario") {
-    updates.firmado_propietario = true;
-    updates.firma_propietario_img = firmaBase64;
-  } else {
-    updates.firmado_inquilino = true;
-    updates.firma_inquilino_img = firmaBase64;
+  try {
+    // El backend determina el rol desde el JWT, no necesitamos enviarlo
+    await api.post(`/contratos/${contratoId}/firmar`, {
+      firma_base64: firmaBase64,
+    });
+    return { error: null };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error" };
   }
-
-  // Check if both will be signed
-  const { data: current } = await supabase
-    .from("contratos_digitales")
-    .select("firmado_propietario, firmado_inquilino")
-    .eq("id", contratoId)
-    .single();
-
-  if (current) {
-    const bothSigned =
-      (rol === "propietario" && current.firmado_inquilino) ||
-      (rol === "inquilino" && current.firmado_propietario);
-    if (bothSigned) {
-      updates.fecha_firma_completa = new Date().toISOString();
-    }
-  }
-
-  const { error } = await supabase
-    .from("contratos_digitales")
-    .update(updates)
-    .eq("id", contratoId);
-
-  if (error) return { error: error.message };
-  return { error: null };
 }
 
 export async function obtenerContratoBySolicitud(
   solicitudId: string
 ): Promise<{ data: ContratoDigital | null; error: string | null }> {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("contratos_digitales")
-    .select("*")
-    .eq("solicitud_id", solicitudId)
-    .maybeSingle();
-
-  if (error) return { data: null, error: error.message };
-  return { data: data as ContratoDigital | null, error: null };
+  try {
+    const data = await api.get<ContratoDigital>(
+      `/contratos/solicitud/${solicitudId}`
+    );
+    return { data, error: null };
+  } catch (e) {
+    // 404 = no contrato yet, not an error for the caller
+    const msg = e instanceof Error ? e.message : "";
+    if (msg.includes("no encontrado") || msg.includes("404")) {
+      return { data: null, error: null };
+    }
+    return { data: null, error: msg || "Error" };
+  }
 }
 
-export { getPublicPdfUrl, BUCKET_PDF };
+// Re-export for backward compatibility
+export function getPublicPdfUrl(path: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return `${supabaseUrl}/storage/v1/object/public/contratos-pdf/${path}`;
+}
+
+export const BUCKET_PDF = "contratos-pdf";

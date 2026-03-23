@@ -1,13 +1,6 @@
-import { createClient } from "@/lib/supabase/client";
+import { api } from "@/lib/api";
 
 export type MotivoTemporalidad = "Estudios" | "Trabajo" | "Obras" | "Salud" | "Otros";
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const BUCKET = "viviendas-fotos";
-
-export function getPublicPhotoUrl(path: string): string {
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-}
 
 export interface Vivienda {
   id: string;
@@ -28,7 +21,7 @@ export interface Vivienda {
   verificada: boolean;
   activa: boolean;
   disponible_desde: string | null;
-  duracion_minima: string; // legacy — se mantiene por compatibilidad
+  duracion_minima: string;
   estancia_minima: number;
   estancia_maxima: number;
   fotos: string[];
@@ -61,101 +54,79 @@ export interface FiltrosVivienda {
   habitaciones?: number;
 }
 
-async function subirFotos(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  viviendaId: string,
-  fotos: File[]
-): Promise<string[]> {
-  const urls: string[] = [];
-
-  for (let i = 0; i < fotos.length; i++) {
-    const file = fotos[i];
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const path = `${userId}/${viviendaId}/${i + 1}-${Date.now()}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, file, { upsert: true, contentType: file.type });
-
-    if (!error) {
-      urls.push(getPublicPhotoUrl(path));
-    }
-  }
-
-  return urls;
+export function getPublicPhotoUrl(path: string): string {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  return `${supabaseUrl}/storage/v1/object/public/viviendas-fotos/${path}`;
 }
 
 export async function publicarVivienda(
   input: PublicarViviendaInput,
   fotos?: File[]
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const supabase = createClient();
+  try {
+    // 1. Crear la vivienda en el backend
+    const vivienda = await api.post<Vivienda>("/viviendas", input);
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "No estás autenticado" };
+    // 2. Subir fotos si las hay
+    if (fotos && fotos.length > 0) {
+      const urls: string[] = [];
 
-  // 1. Insertar la vivienda para obtener el ID
-  const { data, error } = await supabase
-    .from("viviendas")
-    .insert({
-      propietario_id: user.id,
-      ...input,
-      activa: true,
-      verificada: false,
-      fotos: [],
-    })
-    .select()
-    .single();
+      for (const foto of fotos) {
+        // Obtener URL firmada del backend
+        const { signedUrl, publicUrl } = await api.post<{
+          signedUrl: string;
+          publicUrl: string;
+        }>(`/viviendas/${vivienda.id}/fotos/upload-url`, {
+          filename: foto.name,
+        });
 
-  if (error || !data) return { data: null, error: error?.message ?? "Error al guardar" };
+        // Subir directamente a Supabase Storage con la URL firmada
+        await fetch(signedUrl, {
+          method: "PUT",
+          body: foto,
+          headers: { "Content-Type": foto.type },
+        });
 
-  // 2. Subir fotos si las hay y actualizar la vivienda con las URLs
-  if (fotos && fotos.length > 0) {
-    const urls = await subirFotos(supabase, user.id, data.id, fotos);
-    if (urls.length > 0) {
-      await supabase
-        .from("viviendas")
-        .update({ fotos: urls })
-        .eq("id", data.id);
-      (data as Vivienda).fotos = urls;
+        urls.push(publicUrl);
+      }
+
+      // Actualizar vivienda con las URLs de fotos
+      if (urls.length > 0) {
+        const updated = await api.patch<Vivienda>(
+          `/viviendas/${vivienda.id}`,
+          { fotos: urls }
+        );
+        return { data: updated, error: null };
+      }
     }
-  }
 
-  return { data: data as Vivienda, error: null };
+    return { data: vivienda, error: null };
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Error al publicar vivienda",
+    };
+  }
 }
 
 export async function obtenerViviendas(
   filtros?: FiltrosVivienda
 ): Promise<{ data: Vivienda[]; error: string | null }> {
-  const supabase = createClient();
+  try {
+    const params = new URLSearchParams();
+    if (filtros?.ciudad && filtros.ciudad !== "todas") params.set("ciudad", filtros.ciudad);
+    if (filtros?.motivo && filtros.motivo !== "todos") params.set("motivo", filtros.motivo);
+    if (filtros?.precioMin !== undefined) params.set("precioMin", String(filtros.precioMin));
+    if (filtros?.precioMax !== undefined) params.set("precioMax", String(filtros.precioMax));
+    if (filtros?.habitaciones !== undefined && filtros.habitaciones > 0)
+      params.set("habitaciones", String(filtros.habitaciones));
 
-  let query = supabase
-    .from("viviendas")
-    .select("*")
-    .eq("activa", true)
-    .order("fecha_creacion", { ascending: false });
-
-  if (filtros?.ciudad && filtros.ciudad !== "todas") {
-    query = query.ilike("ciudad", `%${filtros.ciudad}%`);
+    const query = params.toString();
+    const data = await api.get<Vivienda[]>(`/viviendas${query ? `?${query}` : ""}`);
+    return { data, error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Error al obtener viviendas" };
   }
-  if (filtros?.motivo && filtros.motivo !== "todos") {
-    query = query.contains("motivos", [filtros.motivo]);
-  }
-  if (filtros?.precioMin !== undefined) {
-    query = query.gte("precio_mes", filtros.precioMin);
-  }
-  if (filtros?.precioMax !== undefined) {
-    query = query.lte("precio_mes", filtros.precioMax);
-  }
-  if (filtros?.habitaciones !== undefined && filtros.habitaciones > 0) {
-    query = query.gte("habitaciones", filtros.habitaciones);
-  }
-
-  const { data, error } = await query;
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Vivienda[]) ?? [], error: null };
 }
 
 export async function actualizarVivienda(
@@ -164,59 +135,60 @@ export async function actualizarVivienda(
   fotosNuevas?: File[],
   fotosExistentes?: string[]
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const supabase = createClient();
+  try {
+    let fotosFinales = fotosExistentes ?? [];
 
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: null, error: "No estás autenticado" };
+    // Subir fotos nuevas si las hay
+    if (fotosNuevas && fotosNuevas.length > 0) {
+      for (const foto of fotosNuevas) {
+        const { signedUrl, publicUrl } = await api.post<{
+          signedUrl: string;
+          publicUrl: string;
+        }>(`/viviendas/${id}/fotos/upload-url`, { filename: foto.name });
 
-  let fotosFinales = fotosExistentes ?? [];
-  if (fotosNuevas && fotosNuevas.length > 0) {
-    const nuevasUrls = await subirFotos(supabase, user.id, id, fotosNuevas);
-    fotosFinales = [...fotosFinales, ...nuevasUrls];
+        await fetch(signedUrl, {
+          method: "PUT",
+          body: foto,
+          headers: { "Content-Type": foto.type },
+        });
+
+        fotosFinales = [...fotosFinales, publicUrl];
+      }
+    }
+
+    const data = await api.patch<Vivienda>(`/viviendas/${id}`, {
+      ...input,
+      fotos: fotosFinales,
+    });
+
+    return { data, error: null };
+  } catch (e) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Error al actualizar",
+    };
   }
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .update({ ...input, fotos: fotosFinales })
-    .eq("id", id)
-    .eq("propietario_id", user.id)
-    .select()
-    .single();
-
-  if (error || !data) return { data: null, error: error?.message ?? "Error al actualizar" };
-  return { data: data as Vivienda, error: null };
 }
 
 export async function obtenerViviendaById(
   id: string
 ): Promise<{ data: Vivienda | null; error: string | null }> {
-  const supabase = createClient();
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) return { data: null, error: error.message };
-  return { data: data as Vivienda, error: null };
+  try {
+    const data = await api.get<Vivienda>(`/viviendas/${id}`);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error" };
+  }
 }
 
 export async function obtenerMisViviendas(): Promise<{
   data: Vivienda[];
   error: string | null;
 }> {
-  const supabase = createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { data: [], error: "No estás autenticado" };
-
-  const { data, error } = await supabase
-    .from("viviendas")
-    .select("*")
-    .eq("propietario_id", user.id)
-    .order("fecha_creacion", { ascending: false });
-
-  if (error) return { data: [], error: error.message };
-  return { data: (data as Vivienda[]) ?? [], error: null };
+  try {
+    const data = await api.get<Vivienda[]>("/viviendas/mis-viviendas");
+    return { data, error: null };
+  } catch (e) {
+    return { data: [], error: e instanceof Error ? e.message : "Error" };
+  }
 }

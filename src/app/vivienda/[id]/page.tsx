@@ -4,7 +4,6 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BotonReservar } from "@/components/reserva/BotonReservar";
-import { createClient } from "@/lib/supabase/server";
 import type { Vivienda } from "@/lib/viviendas";
 import {
   Shield, MapPin, Star, BedDouble, Bath, Maximize2,
@@ -27,23 +26,22 @@ function getColor(id: string) {
   return CARD_COLORS[Math.abs(hash) % CARD_COLORS.length];
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+
 export default async function FichaVivienda({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const { data: v, error } = await supabase
-    .from("viviendas")
-    .select("*, usuarios(nombre_completo, verificado_kyc, fecha_creacion)")
-    .eq("id", id)
-    .single();
+  const res = await fetch(`${API_URL}/api/v1/viviendas/${id}`, {
+    next: { revalidate: 60 },
+  });
 
-  if (error || !v) notFound();
+  if (!res.ok) notFound();
 
-  const vivienda = v as Vivienda & {
-    usuarios: { nombre_completo: string; verificado_kyc: boolean; fecha_creacion: string } | null;
+  const vivienda = (await res.json()) as Vivienda & {
+    propietario: { nombre_completo: string; verificado_kyc: boolean; fecha_creacion: string } | null;
   };
 
-  const propietario = vivienda.usuarios;
+  const propietario = vivienda.propietario;
   const iniciales = propietario?.nombre_completo
     ? propietario.nombre_completo.split(" ").map((n: string) => n[0]).slice(0, 2).join("").toUpperCase()
     : "??";

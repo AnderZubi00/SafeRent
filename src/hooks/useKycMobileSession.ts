@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { api } from "@/lib/api";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type KycMobileEstado =
@@ -157,30 +158,31 @@ export function useKycMobileSession() {
     }, 30_000);
   }, [limpiarTimers, limpiarTodo]);
 
-  // Check for recent COMPLETADA session on mount
+  // Check for recent completed KYC session on mount via backend
   useEffect(() => {
     async function buscarSesionReciente() {
-      const supabase = createClient();
-      const treintaMinAtras = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      try {
+        const data = await api.get<{
+          estado: string;
+          safe_score?: number;
+          nombre_extraido?: string;
+          apellidos_extraidos?: string;
+          dni_extraido?: string;
+          tipo_documento?: string;
+        }>("/kyc/estado");
 
-      const { data } = await supabase
-        .from("kyc_sesiones")
-        .select("safe_score, nombre_extraido, apellidos_extraidos, dni_extraido, tipo_documento")
-        .eq("estado", "COMPLETADO")
-        .gt("actualizado_en", treintaMinAtras)
-        .order("actualizado_en", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (data) {
-        setResultado({
-          safeScore: data.safe_score ?? 0,
-          nombreExtraido: data.nombre_extraido ?? "",
-          apellidosExtraidos: data.apellidos_extraidos ?? "",
-          dniExtraido: data.dni_extraido ?? "",
-          tipoDocumento: data.tipo_documento ?? "",
-        });
-        setEstado("completado");
+        if (data.estado === "COMPLETADO") {
+          setResultado({
+            safeScore: data.safe_score ?? 0,
+            nombreExtraido: data.nombre_extraido ?? "",
+            apellidosExtraidos: data.apellidos_extraidos ?? "",
+            dniExtraido: data.dni_extraido ?? "",
+            tipoDocumento: data.tipo_documento ?? "",
+          });
+          setEstado("completado");
+        }
+      } catch {
+        // No session found or not authenticated — ignore
       }
     }
 
@@ -195,17 +197,8 @@ export function useKycMobileSession() {
     limpiarTodo();
 
     try {
-      const response = await fetch("/api/kyc/sesion", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Error al crear la sesión");
-      }
-
-      const data: SesionData = await response.json();
+      // Crear sesión KYC a través del backend
+      const data = await api.post<SesionData>("/kyc/sesion");
       setSesionId(data.id);
       setToken(data.token);
       setExpiraEn(data.expira_en);

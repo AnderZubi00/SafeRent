@@ -230,20 +230,7 @@ function CheckoutContent() {
     url.searchParams.set("solicitud", data.id);
     window.history.replaceState({}, "", url.toString());
 
-    // Send email notification to propietario
-    try {
-      await fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: "solicitud_recibida",
-          propietarioEmail: "propietario@saferent.es",
-          propietarioNombre: "Propietario",
-          inquilinoNombre: "Inquilino",
-          viviendaTitulo: vivienda.titulo,
-        }),
-      });
-    } catch {}
+    // El backend envía el email al propietario automáticamente al crear la solicitud
   }
 
   async function handleFirmarContrato() {
@@ -297,20 +284,7 @@ function CheckoutContent() {
       console.error("Error registrando pagos:", pagoError);
     }
 
-    try {
-      await fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: "pago_recibido",
-          propietarioEmail: "propietario@saferent.es",
-          propietarioNombre: "Propietario",
-          inquilinoNombre: "Inquilino",
-          viviendaTitulo: vivienda.titulo,
-          importe: `${calcularTotal().toLocaleString("es-ES")}€`,
-        }),
-      });
-    } catch {}
+    // El backend envía el email al propietario automáticamente al registrar el pago
 
     setProcesandoPago(false);
     setPagoCompletado(true);

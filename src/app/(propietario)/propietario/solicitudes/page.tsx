@@ -51,7 +51,7 @@ export default function SolicitudesPage() {
   const [modalTipo, setModalTipo] = useState<"detalle" | "rechazar" | "firmar" | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [procesando, setProcesando] = useState(false);
-  const [generandoContrato, setGenerandoContrato] = useState(false);
+  const generandoContrato = false; // El backend genera el contrato al aceptar
 
   const sigCanvasRef = useRef<SignatureCanvas | null>(null);
 
@@ -70,6 +70,7 @@ export default function SolicitudesPage() {
     setProcesando(true);
     setError(null);
 
+    // El backend se encarga de: actualizar estado, enviar email y generar contrato
     const { error: err } = await aceptarSolicitudAction(s.id);
     if (err) {
       setError(err);
@@ -77,47 +78,17 @@ export default function SolicitudesPage() {
       return;
     }
 
-    try {
-      await fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: "solicitud_aceptada",
-          inquilinoEmail: s.usuarios?.email,
-          inquilinoNombre: s.usuarios?.nombre_completo,
-          viviendaTitulo: s.viviendas?.titulo,
-        }),
-      });
-    } catch {}
-
-    setGenerandoContrato(true);
-    let contratoData = null;
-    try {
-      const res = await fetch("/api/contratos/generar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ solicitudId: s.id }),
-      });
-      const data = await res.json();
-      if (data.contrato) {
-        contratoData = data.contrato;
-      }
-    } catch (e) {
-      console.error("Error generando contrato:", e);
-    }
-    setGenerandoContrato(false);
-
-    setSolicitudActiva({ ...s, estado: "ACEPTADA", contrato: contratoData });
-    setModalTipo("firmar");
-    setProcesando(false);
-
+    // Recargar datos y abrir modal de firma
     await recargar();
+    setProcesando(false);
+    // El modal de firma se abrirá en el siguiente render cuando el usuario haga clic en "Ver contrato"
   }
 
   async function handleRechazar() {
     if (!solicitudActiva || !motivoRechazo.trim()) return;
 
     setProcesando(true);
+    // El backend se encarga de actualizar estado y enviar email de rechazo
     const { error: err } = await rechazarSolicitudAction(
       solicitudActiva.id,
       motivoRechazo
@@ -128,20 +99,6 @@ export default function SolicitudesPage() {
       setProcesando(false);
       return;
     }
-
-    try {
-      await fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: "solicitud_rechazada",
-          inquilinoEmail: solicitudActiva.usuarios?.email,
-          inquilinoNombre: solicitudActiva.usuarios?.nombre_completo,
-          viviendaTitulo: solicitudActiva.viviendas?.titulo,
-          motivoRechazo,
-        }),
-      });
-    } catch {}
 
     setModalTipo(null);
     setProcesando(false);
@@ -159,27 +116,13 @@ export default function SolicitudesPage() {
     setError(null);
 
     const firmaBase64 = sigCanvasRef.current.toDataURL("image/png");
+    // El backend se encarga de registrar la firma y enviar email si corresponde
     const { error: err } = await firmarContratoAction(solicitudActiva.contrato.id, firmaBase64);
 
     if (err) {
       setError(err);
       setProcesando(false);
       return;
-    }
-
-    if (solicitudActiva) {
-      try {
-        await fetch("/api/email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            tipo: "contrato_listo",
-            inquilinoEmail: solicitudActiva.usuarios?.email,
-            inquilinoNombre: solicitudActiva.usuarios?.nombre_completo,
-            viviendaTitulo: solicitudActiva.viviendas?.titulo,
-          }),
-        });
-      } catch {}
     }
 
     setModalTipo(null);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { api } from "@/lib/api";
 
 interface KycDatos {
   nombre: string;
@@ -45,18 +46,8 @@ export function useKycAnalysis() {
     try {
       const imagen_base64 = await fileToBase64(file);
 
-      const response = await fetch("/api/kyc/analizar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagen_base64 }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Error al analizar el documento");
-      }
-
-      const data: KycResultado = await response.json();
+      // Llamar al backend para análisis KYC
+      const data = await api.post<KycResultado>("/kyc/analizar", { imagen_base64 });
       setResultado(data);
     } catch (err) {
       const message =
