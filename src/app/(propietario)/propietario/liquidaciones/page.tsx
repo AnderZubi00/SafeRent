@@ -42,8 +42,8 @@ export default function LiquidacionesPage() {
       const key = p.vivienda_id;
       if (!mapa.has(key)) {
         mapa.set(key, {
-          titulo: p.viviendas?.titulo ?? "Vivienda",
-          ciudad: p.viviendas?.ciudad ?? "",
+          titulo: p.vivienda?.titulo ?? "Vivienda",
+          ciudad: p.vivienda?.ciudad ?? "",
           pagos: [],
         });
       }
@@ -149,7 +149,7 @@ export default function LiquidacionesPage() {
                       const comision = p.importe * COMISION_RATE;
                       const neto = p.importe - comision;
                       const inquilinoNombre =
-                        p.solicitudes?.usuarios?.nombre_completo ?? null;
+                        p.solicitud?.inquilino?.nombre_completo ?? null;
 
                       return (
                         <TableRow key={p.id} className="hover:bg-slate-50/60">

@@ -44,6 +44,8 @@ export interface PublicarViviendaInput {
   disponible_desde?: string;
   estancia_minima: number;
   estancia_maxima: number;
+  /** PATCH parcial (p. ej. toggle visible en listados) */
+  activa?: boolean;
 }
 
 export interface FiltrosVivienda {

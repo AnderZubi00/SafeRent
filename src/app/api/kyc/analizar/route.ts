@@ -408,6 +408,7 @@ Responde con este JSON:
       nombre?: string; apellidos?: string; numero_documento?: string;
       numero_soporte?: string; fecha_nacimiento?: string; fecha_expiracion?: string;
     };
+    mrz_linea1?: string;
     mrz_linea2?: string;
     tipo_documento?: string;
   } = {};

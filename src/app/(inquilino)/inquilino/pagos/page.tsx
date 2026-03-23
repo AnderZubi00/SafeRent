@@ -121,11 +121,11 @@ function PagoRow({ pago }: { pago: Pago }) {
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-slate-900">{conceptoInfo.label}</p>
         <div className="flex items-center gap-2 mt-0.5">
-          {pago.viviendas && (
+          {pago.vivienda && (
             <>
               <span className="text-xs text-slate-500 flex items-center gap-1">
                 <Home className="h-3 w-3" />
-                {pago.viviendas.titulo}
+                {pago.vivienda.titulo}
               </span>
               <span className="text-slate-300">·</span>
             </>
@@ -211,7 +211,7 @@ export default function PagosPage() {
   }
 
   const pagosPorVivienda = pagos.reduce<Record<string, Pago[]>>((acc, p) => {
-    const key = p.viviendas?.titulo ?? p.vivienda_id;
+    const key = p.vivienda?.titulo ?? p.vivienda_id;
     if (!acc[key]) acc[key] = [];
     acc[key].push(p);
     return acc;
