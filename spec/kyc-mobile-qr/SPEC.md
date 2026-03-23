@@ -1,270 +1,317 @@
-Implementa el flujo "Continuar en Móvil" para la verificación KYC en SafeRent.
-Este flujo afecta a tres repositorios: frontend (Next.js), backend (NestJS) y
-app móvil (Expo). Trabaja en los tres de forma coordinada.
+Implementa el flujo KYC con cámara + chip NFC para la app Expo de SafeRent.
+Android e iOS usando react-native-nfc-manager como base, con manejo
+explícito del fallo PACE-IM en iOS para el DNI español 3.0.
 
 ═══════════════════════════════════════════════════════════════
-CONTEXTO TÉCNICO DEL PROYECTO
+LIBRERÍA Y LIMITACIONES REALES
 ═══════════════════════════════════════════════════════════════
 
-FRONTEND (Next.js):
-- Auth y Storage: Supabase (@/lib/supabase/client y @/lib/supabase/server)
-- Checkout del inquilino: src/app/(inquilino)/inquilino/checkout/page.tsx
-- El Step 1 actual tiene un input para subir DNI desde el PC
-- Cliente Supabase browser: createClient() de @/lib/supabase/client
+Librería principal: @didit-sdk/react-native-nfc-passport-reader
+  npm install @didit-sdk/react-native-nfc-passport-reader
 
-BACKEND (NestJS + Prisma):
-- Solo tiene AuthModule implementado actualmente
-- Schema Prisma en: prisma/schema.prisma
-- PrismaService en: src/prisma/prisma.service.ts
-- Patrón de módulos: Module + Controller + Service por feature
+API de la librería:
+  import NfcPassportReader from '@didit-sdk/react-native-nfc-passport-reader'
+  import type { NfcResult } from '@didit-sdk/react-native-nfc-passport-reader'
 
-APP MÓVIL (Expo):
-- Cliente Supabase: supabase de @/lib/supabase (ya configurado con AsyncStorage)
-- Navegación: Expo Router (app/(tabs)/)
-- La pantalla de verificación admin ya existe en app/(tabs)/(admin)/verificacion.tsx
-- El flujo de KYC del inquilino aún NO existe en la app
+  const result: NfcResult = await NfcPassportReader.startReading({
+    bacKey: {
+      documentNo: '123456789',   // 9 chars rellenado con '<'
+      expiryDate: 'YYYY-MM-DD',
+      birthDate:  'YYYY-MM-DD',
+    },
+    includeImages: true,
+  })
 
-═══════════════════════════════════════════════════════════════
-ARQUITECTURA DEL FLUJO
-═══════════════════════════════════════════════════════════════
+Comportamiento por plataforma:
+  Android: intenta PACE-IM → PACE-GM → BAC (cubre DNI 3.0 español, pasaportes)
+  iOS:     intenta PACE-GM → BAC (cubre pasaportes y DNI pre-2015)
+  iOS + DNI español 3.0: lanza error PACE-IM → capturar → flujo de fallback OCR
 
-1. Usuario en la WEB llega al Step 1 del checkout
-2. WEB llama a POST /api/kyc/sesion → genera una kyc_session en Supabase con token único
-3. WEB muestra un QR que codifica la URL: saferent://kyc?token=<token>&sesion=<id>
-4. WEB se suscribe via Supabase Realtime al canal "kyc_session:<id>" escuchando cambios
-   en la tabla kyc_sesiones donde id = <id>
-5. Usuario escanea el QR con la APP MÓVIL
-6. APP MÓVIL abre la pantalla de escaneo KYC
-7. APP MÓVIL captura el DNI con la cámara y llama a POST /api/kyc/analizar
-   (la API Route de KYC con OpenAI que ya existe)
-8. APP MÓVIL actualiza el campo estado de kyc_sesiones a "COMPLETADO" y guarda
-   los datos extraídos (nombre, dni_nie, safe_score) en la misma fila
-9. Supabase Realtime notifica a la WEB del cambio
-10. WEB recibe la notificación, lee los datos extraídos, muestra el SafeScore
-    y habilita el botón "Continuar" del Step 1
+Detección del fallo PACE-IM en iOS:
+  El error tiene message que contiene "IM not yet implemented" o
+  code que contiene "PACEError" o "invalidated" con contexto PACE.
+  Capturar este error específicamente y tratarlo como PACE_IM_NO_SOPORTADO.
 
 ═══════════════════════════════════════════════════════════════
-PARTE 1 — BASE DE DATOS (Supabase / Prisma)
+CONFIGURACIÓN NATIVA
 ═══════════════════════════════════════════════════════════════
 
-Crear la tabla kyc_sesiones directamente en Supabase con esta SQL
-(NO crear migración de Prisma para esta tabla — usar Supabase directo):
-```sql
-CREATE TABLE kyc_sesiones (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  token         TEXT NOT NULL UNIQUE DEFAULT gen_random_uuid()::text,
-  usuario_id    UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-  solicitud_id  UUID REFERENCES solicitudes(id) ON DELETE SET NULL,
-  estado        TEXT NOT NULL DEFAULT 'PENDIENTE'
-                CHECK (estado IN ('PENDIENTE', 'ESCANEANDO', 'COMPLETADO', 'FALLIDO', 'EXPIRADO')),
-  safe_score    INTEGER,
-  nombre_extraido     TEXT,
-  apellidos_extraidos TEXT,
-  dni_extraido  TEXT,
-  tipo_documento      TEXT,
-  datos_raw     JSONB,
-  expira_en     TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '15 minutes'),
-  creado_en     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+iOS Info.plist — añadir:
+  <key>NFCReaderUsageDescription</key>
+  <string>SafeRent necesita leer el chip de tu documento para verificar tu identidad</string>
+  <key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+  <array>
+    <string>A0000002471001</string>
+    <string>A0000002472001</string>
+    <string>D4100000030001</string>
+    <string>00000000000000</string>
+  </array>
 
--- Índice para búsquedas por token (lo usa la app móvil)
-CREATE INDEX idx_kyc_sesiones_token ON kyc_sesiones(token);
+iOS Podfile — añadir (requerido por la librería):
+  pod 'OpenSSL-Universal', '~> 1.1.1900'
 
--- RLS: el usuario solo puede ver/modificar sus propias sesiones
-ALTER TABLE kyc_sesiones ENABLE ROW LEVEL SECURITY;
+iOS Entitlements — añadir en ios/SafeRentMobile.entitlements:
+  <key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+  <array>
+    <string>A0000002471001</string>
+    <string>A0000002472001</string>
+    <string>D4100000030001</string>
+    <string>00000000000000</string>
+  </array>
 
-CREATE POLICY "usuario_sus_sesiones" ON kyc_sesiones
-  FOR ALL USING (auth.uid() = usuario_id);
+NOTA: El entitlement NFC en iOS requiere cuenta Apple Developer activa para
+compilar en dispositivo físico. Para desarrollo, usar Android.
+Añadir comentario en el código indicando este requisito.
 
--- Supabase Realtime: habilitar para esta tabla
-ALTER PUBLICATION supabase_realtime ADD TABLE kyc_sesiones;
+Android AndroidManifest.xml:
+  <uses-permission android:name="android.permission.NFC"/>
+  <uses-feature android:name="android.hardware.nfc" android:required="false"/>
 
--- Trigger para actualizar actualizado_en automáticamente
-CREATE OR REPLACE FUNCTION actualizar_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN NEW.actualizado_en = NOW(); RETURN NEW; END;
-$$ LANGUAGE plpgsql;
+Android NFC intent filter en la Activity principal:
+  <intent-filter>
+    <action android:name="android.nfc.action.TECH_DISCOVERED"/>
+  </intent-filter>
+  <meta-data android:name="android.nfc.action.TECH_DISCOVERED"
+    android:resource="@xml/nfc_tech_filter"/>
 
-CREATE TRIGGER kyc_sesiones_updated
-  BEFORE UPDATE ON kyc_sesiones
-  FOR EACH ROW EXECUTE FUNCTION actualizar_timestamp();
-```
-
-═══════════════════════════════════════════════════════════════
-PARTE 2 — FRONTEND Next.js
-═══════════════════════════════════════════════════════════════
-
-### 2.1 API Route: src/app/api/kyc/sesion/route.ts
-
-POST → Crea una nueva kyc_session en Supabase para el usuario autenticado.
-- Autenticar con createClient() de @/lib/supabase/server
-- Insertar en kyc_sesiones con usuario_id = user.id y estado = 'PENDIENTE'
-- Responder con { id, token, expira_en }
-- Si ya existe una sesión PENDIENTE reciente (< 15min) para este usuario,
-  devolverla en lugar de crear una nueva
-
-### 2.2 Hook: src/hooks/useKycMobileSession.ts
-
-Hook "use client" que gestiona todo el ciclo de vida de la sesión móvil:
-
-Estado interno:
-- sesionId: string | null
-- token: string | null
-- estado: 'idle' | 'generando' | 'esperando_escaneo' | 'escaneando' | 'completado' | 'fallido' | 'expirado'
-- resultado: objeto con { safeScore, nombreExtraido, apellidosExtraidos, dniExtraido, tipoDocumento } | null
-- error: string | null
-
-Funciones expuestas:
-- iniciarSesion(): llama a POST /api/kyc/sesion y guarda id + token en estado
-- cancelar(): limpia el estado
-- qrUrl: string | null — la URL que va dentro del QR, con formato:
-  `${process.env.NEXT_PUBLIC_APP_URL}/kyc-movil?token=${token}&sesion=${sesionId}`
-  Si NEXT_PUBLIC_APP_URL no está definida, usar `saferent://kyc?token=${token}&sesion=${sesionId}`
-
-Lógica de Realtime:
-- Cuando sesionId no es null, suscribirse al canal de Supabase:
-  supabase.channel(`kyc_sesion_${sesionId}`)
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'kyc_sesiones',
-      filter: `id=eq.${sesionId}`
-    }, handler)
-    .subscribe()
-- En el handler, mapear el campo estado de la BD al estado del hook
-- Si estado = 'COMPLETADO', leer los campos nombre_extraido, apellidos_extraidos,
-  dni_extraido, tipo_documento, safe_score y guardarlos en resultado
-- Al desmontar o cancelar, hacer channel.unsubscribe()
-
-### 2.3 Componente: src/components/kyc/KycMobilePanel.tsx
-
-Componente "use client" que muestra el panel completo del flujo móvil.
-Recibe: { onCompletado: (resultado: KycMobileResultado) => void, onSaltarAManual: () => void }
-
-Usar el hook useKycMobileSession internamente.
-
-Estados visuales (los tres estados del flujo):
-
-ESTADO "esperando_escaneo":
-- Botón grande "Verificar con el móvil" con icono Smartphone
-- Al pulsarlo, llama a iniciarSesion() y muestra el QR
-- El QR se genera con el componente QRCodeSVG de la librería qrcode.react
-  (instalar: npm install qrcode.react @types/qrcode.react si no existe)
-- Tamaño del QR: 200x200px, centrado
-- Diseño del panel: fondo slate-950 (oscuro) con el QR en blanco
-  para máximo contraste y facilidad de escaneo
-- Texto bajo el QR: "Escanea con la App SafeRent para verificar tu DNI"
-- Temporizador de cuenta atrás desde 15 minutos (regenerar QR si expira)
-- Opción "Prefiero subir una foto" (llama a onSaltarAManual)
-
-ESTADO "escaneando":
-- Ocultar el QR
-- Mostrar spinner con texto "El móvil está procesando tu documento…"
-- Animación pulse en el icono de Smartphone
-
-ESTADO "completado":
-- Mostrar KycResultBadge con los datos del resultado
-  (importar el componente ya creado en src/components/kyc/KycResultBadge.tsx)
-- Construir un objeto KycResultado compatible desde los datos de la sesión
-- Llamar automáticamente a onCompletado(resultado) tras 1.5 segundos
-
-### 2.4 Modificar: src/app/(inquilino)/inquilino/checkout/page.tsx
-
-En el Step 1, reemplazar el contenido actual por un layout de dos opciones:
-
-OPCIÓN A — "Verificar con el móvil" (recomendada, aparece primero):
-  Mostrar el componente KycMobilePanel
-  Cuando onCompletado se dispare, guardar el resultado en estado local kycResultado
-  y avanzar automáticamente al Step 2
-
-OPCIÓN B — "Subir desde este dispositivo" (enlace secundario debajo):
-  El comportamiento actual del Step 1 (subir archivo + KycResultBadge)
-  Seguir usando el hook useKycAnalysis para este flujo
-
-El Step 1 actualizado debe tener este layout:
-- Título: "Verifica tu identidad"
-- Subtítulo: "Elige cómo quieres hacerlo"
-- Card principal: KycMobilePanel (ocupa todo el ancho)
-- Separador con texto "o"
-- Botón secundario con outline: "Subir foto desde este dispositivo"
-  Al pulsarlo, mostrar el input de archivo original (toggle, no nueva pantalla)
+Android res/xml/nfc_tech_filter.xml:
+  <resources>
+    <tech-list><tech>android.nfc.tech.IsoDep</tech></tech-list>
+  </resources>
 
 ═══════════════════════════════════════════════════════════════
-PARTE 3 — APP MÓVIL (Expo)
+PARTE 1 — lib/nfc/index.ts
 ═══════════════════════════════════════════════════════════════
 
-### 3.1 Pantalla: app/kyc-movil.tsx (o app/(kyc)/kyc-movil.tsx)
+Tipos:
 
-Pantalla que se abre cuando el usuario escanea el QR.
-Recibe por parámetros de URL: token y sesion (IDs de la sesión KYC).
+  interface MrzKeys {
+    documentNumber: string  // 9 chars con '<' de padding
+    dateOfBirth: string     // YYYY-MM-DD
+    dateOfExpiry: string    // YYYY-MM-DD
+  }
 
-Flujo de la pantalla:
+  type CodigoErrorNfc =
+    | 'NFC_NO_DISPONIBLE'
+    | 'NFC_DESACTIVADO'
+    | 'PACE_IM_NO_SOPORTADO'   // DNI 3.0 en iOS
+    | 'TIMEOUT'
+    | 'TAG_PERDIDO'
+    | 'LECTURA_ERROR'
 
-PASO 1 — Validar la sesión:
-- Llamar a Supabase: buscar en kyc_sesiones donde token = token recibido
-- Si no existe o está expirada → mostrar error "QR caducado. Genera uno nuevo desde la web."
-- Si existe y estado = 'PENDIENTE' → actualizar estado a 'ESCANEANDO' y continuar
+  interface NfcChipResult {
+    exitoso: boolean
+    plataforma: 'android' | 'ios'
+    nombre: string | null
+    apellidos: string | null
+    numero_documento: string | null
+    fecha_nacimiento: string | null
+    fecha_caducidad: string | null
+    nacionalidad: string | null
+    foto_base64: string | null
+    passive_auth_ok: boolean
+    error: string | null
+    error_codigo: CodigoErrorNfc | null
+  }
 
-PASO 2 — Captura del documento:
-- Mostrar un visor de cámara usando expo-camera
-- Overlay guía: rectángulo punteado centrado con texto "Coloca tu DNI aquí"
-- Botón circular de captura en la parte inferior
-- Botón para cambiar entre cámara frontal/trasera
-- Instrucción: "Buena iluminación · Documento completo · Sin reflejos"
+Función leerChipDocumento(keys: MrzKeys): Promise<NfcChipResult>:
 
-PASO 3 — Procesamiento:
-- Al capturar, mostrar pantalla de carga con spinner
-- Convertir la foto a base64
-- Llamar a POST /api/kyc/analizar en el servidor web (usar EXPO_PUBLIC_API_URL)
-  con el archivo como FormData (campo "documento")
-- Si hay error → mostrar mensaje y opción de reintentar
+  1. Verificar soporte:
+     const supported = await NfcPassportReader.isNfcSupported()
+     if (!supported) return error('NFC_NO_DISPONIBLE')
 
-PASO 4 — Actualizar sesión en Supabase:
-- Si resultado.recomendacion = 'RECHAZAR':
-  - Actualizar kyc_sesiones: estado = 'FALLIDO', datos_raw = resultado completo
-  - Mostrar pantalla de error con opción "Volver a intentarlo"
-- Si resultado.recomendacion = 'APROBAR' o 'REVISAR_MANUAL':
-  - Actualizar kyc_sesiones:
-    estado = 'COMPLETADO',
-    safe_score = resultado.safe_score,
-    nombre_extraido = resultado.datos_extraidos.nombre,
-    apellidos_extraidos = resultado.datos_extraidos.apellidos,
-    dni_extraido = resultado.datos_extraidos.numero_documento,
-    tipo_documento = resultado.tipo_documento,
-    datos_raw = resultado completo
-  - Mostrar pantalla de éxito con el SafeScore y mensaje:
-    "¡Listo! Vuelve al ordenador para continuar con tu reserva."
-  - Icono de check animado (usar Animated de React Native)
+     if (Platform.OS === 'android') {
+       const enabled = await NfcPassportReader.isNfcEnabled()
+       if (!enabled) return error('NFC_DESACTIVADO')
+     }
 
-### 3.2 Deep Link / URL Scheme (app.json o app.config.js)
+  2. Llamar a la librería:
+     try {
+       const result: NfcResult = await NfcPassportReader.startReading({
+         bacKey: {
+           documentNo: keys.documentNumber,
+           expiryDate: keys.dateOfExpiry,
+           birthDate:  keys.dateOfBirth,
+         },
+         includeImages: true,
+       })
+       return mapearResultado(result)
+     } catch (err) {
+       return mapearError(err)
+     }
 
-Asegurarse de que el scheme "saferent" está configurado para poder abrir
-la app desde el QR con saferent://kyc?token=...&sesion=...
+  3. Función mapearError(err):
+     - Si err.message incluye 'IM not yet' o 'PACE' y Platform.OS === 'ios':
+       return error('PACE_IM_NO_SOPORTADO')
+     - Si err.message incluye 'timeout' o 'timed out':
+       return error('TIMEOUT')
+     - Si err.message incluye 'tag' o 'lost' o 'connection':
+       return error('TAG_PERDIDO')
+     - Cualquier otro: error('LECTURA_ERROR') con el mensaje original
 
-Si ya existe un scheme configurado en app.json, no modificarlo.
-Si no existe, añadir:
-```json
-"scheme": "saferent"
-```
-en la sección "expo" de app.json.
+  4. Función mapearResultado(r: NfcResult): NfcChipResult:
+     - Mapear campos de NfcResult a NfcChipResult
+     - passive_auth_ok = r.documentSigningCertificate != null (o el campo
+       equivalente que devuelva la librería para Passive Auth)
+     - foto_base64: extraer de r.face?.image si includeImages fue true
 
-La ruta app/kyc-movil.tsx debe manejar también la apertura vía deep link
-usando el hook useLocalSearchParams de expo-router.
+Función parsearMrzDesdeOcr(ocr: KycResultado): MrzKeys:
+  - documentNumber: (ocr.datos_extraidos.numero_documento ?? '').padEnd(9,'<').slice(0,9)
+  - dateOfBirth: ocr.datos_extraidos.fecha_nacimiento ?? '2000-01-01'
+  - dateOfExpiry: ocr.datos_extraidos.fecha_caducidad ?? '2030-01-01'
+
+Función normalizarNombre(s: string | null): string:
+  - toUpperCase()
+  - normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  - replace(/[^A-Z\s]/g, '').replace(/\s+/g, ' ').trim()
 
 ═══════════════════════════════════════════════════════════════
-PARTE 4 — RESTRICCIONES
+PARTE 2 — app/kyc-movil.tsx
 ═══════════════════════════════════════════════════════════════
 
-- NO instalar dependencias nuevas salvo: qrcode.react (frontend) y
-  expo-camera (si no está ya instalada en el proyecto móvil)
-- NO modificar la tabla usuarios ni el schema.prisma del backend
-- NO romper el flujo de subida manual que ya existe en el checkout
-- La suscripción Realtime debe limpiarse siempre en el cleanup del useEffect
-- El QR debe regenerarse automáticamente cuando expire (cada 15 minutos)
-- Si el usuario cierra el navegador y vuelve, el Step 1 debe detectar si
-  ya existe una sesión COMPLETADA reciente (< 30min) para este usuario
-  y mostrar directamente el SafeScore sin pedir el QR de nuevo
-- Todos los textos en español
-- Respetar el sistema de estilos existente: ring-1, rounded-xl,
-  shadcn Card/Button en web; NativeWind en móvil
+Params: token: string, sesion: string (de useLocalSearchParams)
+
+Estados internos: 'VALIDANDO' | 'CAMARA' | 'PROCESANDO_OCR' |
+                  'INSTRUCCIONES_NFC' | 'LEYENDO_NFC' |
+                  'EXITO' | 'EXITO_PARCIAL' | 'ERROR'
+
+VALIDANDO (inicial):
+  Verificar en Supabase que token existe y estado === 'PENDIENTE' y
+  expira_en > now(). Si no → estado ERROR con mensaje "QR caducado".
+  Si válido → UPDATE estado = 'ESCANEANDO' → pasar a CAMARA.
+
+CAMARA:
+  CameraView de expo-camera full-screen.
+  Overlay con rectángulo guía (ratio 85.6/54 ≈ 1.586) usando View con
+  posición absoluta. Las 4 esquinas con líneas indigo de 3px.
+  Zona fuera del rectángulo: View semitransparente negro (opacity 0.5).
+  Instrucciones bajo el rectángulo.
+  Botón circular captura (60px, indigo, bottom:40).
+  Al capturar: comprimir quality:0.85, maxWidth:1920 → pasar a PROCESANDO_OCR.
+
+PROCESANDO_OCR:
+  ActivityIndicator + "Analizando documento…"
+  POST ${EXPO_PUBLIC_API_URL}/api/kyc/analizar con FormData {documento: blob}.
+  Si recomendacion === 'RECHAZAR' → ERROR con botón reintentar → CAMARA.
+  Si 'APROBAR' o 'REVISAR_MANUAL':
+    Guardar resultadoOcr en estado local.
+    Pasar a INSTRUCCIONES_NFC.
+
+INSTRUCCIONES_NFC:
+  Animación 3 ondas NFC con Animated.loop (opacity 1→0, delay escalonado 300ms).
+  Título + instrucciones de posicionamiento.
+  SVG simple mostrando dónde está el chip en el DNI español:
+    Rectángulo blanco (tarjeta), punto/cuadrado en esquina superior-izquierda
+    del reverso con texto "Chip aquí".
+
+  CONDICIONAL SEGÚN PLATAFORMA Y TIPO DE DOCUMENTO:
+    if (Platform.OS === 'ios' && resultadoOcr.tipo_documento === 'DNI'):
+      Mostrar aviso amber:
+        "⚠️ DNI español en iPhone
+        El DNI 3.0 español usa un protocolo NFC (PACE-IM) que aún no está
+        soportado en iOS. Tu identidad se verificará mediante OCR con
+        revisión manual de un agente."
+      Dos botones:
+        "Intentar de todas formas" → LEYENDO_NFC (puede fallar, el fallback manejará el error)
+        "Continuar con revisión manual" → completarSinNfc()
+
+    else:
+      Solo botón "Empezar lectura NFC" → LEYENDO_NFC.
+
+  Enlace pequeño "¿Mi móvil no tiene NFC?" → Modal explicativo.
+
+LEYENDO_NFC:
+  Animación pulso. Texto "Acerca el DNI al móvil…".
+  Timeout 30s con useEffect.
+  Llamar leerChipDocumento(parsearMrzDesdeOcr(resultadoOcr)).
+
+  Gestión del resultado:
+    Si exitoso && passive_auth_ok:
+      Cruzar nombre/DNI OCR vs NFC con normalizarNombre().
+      Si coinciden → completarConNfc(nfc).
+      Si no → estado ERROR "Los datos del chip no coinciden."
+
+    Si error_codigo === 'PACE_IM_NO_SOPORTADO':
+      Mostrar aviso: "Tu DNI requiere protocolo PACE-IM, no disponible en iPhone."
+      Botón → completarSinNfc().
+
+    Si error_codigo === 'NFC_DESACTIVADO':
+      Modal con botón "Abrir ajustes NFC" → NfcPassportReader.openNfcSettings() (Android).
+
+    Si error_codigo === 'TAG_PERDIDO' o 'TIMEOUT':
+      Botón "Reintentar" → vuelve a INSTRUCCIONES_NFC.
+
+    Si passive_auth_ok === false:
+      Estado ERROR: "El chip del documento no supera la verificación."
+
+    Cualquier otro error:
+      Botón "Reintentar" → INSTRUCCIONES_NFC.
+      Botón "Continuar sin NFC" → completarSinNfc().
+
+Función completarConNfc(nfc: NfcChipResult):
+  1. Si nfc.foto_base64 existe:
+     Subir a Supabase Storage 'kyc-fotos-chip' → guardar URL.
+  2. UPDATE kyc_sesiones:
+     estado: 'COMPLETADO',
+     safe_score: resultadoOcr.safe_score,
+     nombre_extraido: nfc.nombre,
+     apellidos_extraidos: nfc.apellidos,
+     dni_extraido: nfc.numero_documento,
+     tipo_documento: resultadoOcr.tipo_documento,
+     nfc_passive_auth: nfc.passive_auth_ok,
+     nfc_plataforma: nfc.plataforma,
+     foto_chip_url: fotoChipUrl,
+     datos_raw: { ocr: resultadoOcr, nfc: { ...nfc, foto_base64: null } }
+  3. setEstado('EXITO')
+
+Función completarSinNfc():
+  UPDATE kyc_sesiones:
+    estado: 'COMPLETADO',
+    safe_score: Math.min(resultadoOcr.safe_score, 65),
+    nombre_extraido: resultadoOcr.datos_extraidos.nombre,
+    apellidos_extraidos: resultadoOcr.datos_extraidos.apellidos,
+    dni_extraido: resultadoOcr.datos_extraidos.numero_documento,
+    tipo_documento: resultadoOcr.tipo_documento,
+    nfc_passive_auth: false,
+    nfc_plataforma: Platform.OS,
+    datos_raw: { ocr: resultadoOcr, nfc: null }
+  setEstado('EXITO_PARCIAL')
+
+EXITO:
+  Check animado (Animated.spring scale 0→1).
+  "¡Identidad verificada!" en verde.
+  Badge "Chip NFC autenticado ✓".
+  Nombre completo y número de documento del chip.
+  Si foto_chip_url: Avatar circular con la foto.
+  "Vuelve al ordenador para continuar."
+
+EXITO_PARCIAL:
+  Check naranja.
+  "Documento verificado".
+  Badge amber "Verificación manual pendiente".
+  "Tu documento se verificará en las próximas horas."
+  "Vuelve al ordenador para continuar."
+
+═══════════════════════════════════════════════════════════════
+PARTE 3 — SQL: añadir columnas
+═══════════════════════════════════════════════════════════════
+
+  ALTER TABLE kyc_sesiones
+    ADD COLUMN IF NOT EXISTS nfc_passive_auth BOOLEAN,
+    ADD COLUMN IF NOT EXISTS nfc_plataforma   TEXT,
+    ADD COLUMN IF NOT EXISTS foto_chip_url    TEXT;
+
+═══════════════════════════════════════════════════════════════
+RESTRICCIONES
+═══════════════════════════════════════════════════════════════
+
+- foto_base64 NUNCA en datos_raw de Supabase. Solo a Storage, solo la URL.
+- NfcPassportReader.stopReading() siempre en bloque finally en Android.
+- Incluir comentario en código: "iOS NFC requiere Apple Developer Account
+  para compilar en dispositivo físico. Usar EAS Build con perfil development."
+- NativeWind para estilos. Español en todos los textos de UI.
+- Usar npx expo prebuild antes de compilar (NFC no funciona en Expo Go).
+- Probar en dispositivo Android físico — simuladores no tienen NFC.
+- PACE-IM en iOS: si el error cambia de mensaje en versiones futuras de
+  la librería, capturar también cualquier error que ocurra específicamente
+  en documentos de tipo DNI en iOS, no solo por message de error.
