@@ -153,11 +153,11 @@ export default function ContratosPage() {
                         <div className="flex items-center gap-1.5">
                           <Building2 className="h-3.5 w-3.5 text-slate-400" />
                           <span className="text-sm text-slate-600">
-                            {s.viviendas?.titulo ?? "Vivienda"}
+                            {s.vivienda?.titulo ?? "Vivienda"}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 ml-5">
-                          {s.viviendas?.ciudad?.split("-")[0]}
+                          {s.vivienda?.ciudad?.split("-")[0]}
                         </p>
                       </TableCell>
                       <TableCell className="text-xs text-slate-500">
@@ -175,7 +175,7 @@ export default function ContratosPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <span className="font-semibold text-slate-900">
-                          {s.viviendas?.precio_mes ?? 0}€
+                          {s.vivienda?.precio_mes ?? 0}€
                         </span>
                         <span className="text-xs text-slate-400">/mes</span>
                       </TableCell>

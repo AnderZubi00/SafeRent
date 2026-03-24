@@ -65,8 +65,8 @@ function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquil
   const docs: DocumentoInquilino[] = [];
 
   for (const sol of solicitudes) {
-    const viviendaTitulo = sol.viviendas?.titulo ?? "Vivienda";
-    const viviendaCiudad = sol.viviendas?.ciudad ?? "";
+    const viviendaTitulo = sol.vivienda?.titulo ?? "Vivienda";
+    const viviendaCiudad = sol.vivienda?.ciudad ?? "";
     const estadoDoc =
       sol.estado === "RECHAZADA"
         ? "rechazado" as const

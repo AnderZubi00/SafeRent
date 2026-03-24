@@ -169,7 +169,7 @@ export default function PagosPage() {
       s.contrato?.firmado_inquilino &&
       s.contrato?.firmado_propietario
   );
-  const proximoPagoImporte = proximoPago?.viviendas?.precio_mes ?? 0;
+  const proximoPagoImporte = proximoPago?.vivienda?.precio_mes ?? 0;
 
   if (cargando) {
     return (

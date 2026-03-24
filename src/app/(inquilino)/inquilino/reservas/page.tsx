@@ -118,10 +118,10 @@ function SolicitudCard({ sol }: { sol: SolicitudConContrato }) {
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row">
           <div className="sm:w-40 h-32 sm:h-auto shrink-0 relative">
-            {sol.viviendas?.fotos?.[0] ? (
+            {sol.vivienda?.fotos?.[0] ? (
               <img
-                src={sol.viviendas.fotos[0]}
-                alt={sol.viviendas.titulo}
+                src={sol.vivienda.fotos[0]}
+                alt={sol.vivienda.titulo}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -139,17 +139,17 @@ function SolicitudCard({ sol }: { sol: SolicitudConContrato }) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-slate-900 text-sm">
-                  {sol.viviendas?.titulo ?? "Vivienda"}
+                  {sol.vivienda?.titulo ?? "Vivienda"}
                 </h3>
                 <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                   <MapPin className="h-3 w-3" />
-                  {sol.viviendas?.ciudad}
-                  {sol.viviendas?.barrio && `, ${sol.viviendas.barrio}`}
+                  {sol.vivienda?.ciudad}
+                  {sol.vivienda?.barrio && `, ${sol.vivienda.barrio}`}
                 </p>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-lg font-bold text-slate-900">
-                  {sol.viviendas?.precio_mes?.toLocaleString("es-ES")}€
+                  {sol.vivienda?.precio_mes?.toLocaleString("es-ES")}€
                 </p>
                 <p className="text-[10px] text-slate-400">/mes</p>
               </div>

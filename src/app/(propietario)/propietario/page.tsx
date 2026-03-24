@@ -230,7 +230,7 @@ function PropietarioInicioContent() {
                   <div className="mt-2 flex flex-wrap gap-2">
                     <span className="flex items-center gap-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-full ring-1 ring-slate-200">
                       <Building2 className="h-3 w-3" />
-                      {s.viviendas?.titulo ?? "Vivienda"}
+                      {s.vivienda?.titulo ?? "Vivienda"}
                     </span>
                     <span className="flex items-center gap-1 text-xs text-slate-500 bg-white px-2.5 py-1 rounded-full ring-1 ring-slate-200">
                       <Calendar className="h-3 w-3" />

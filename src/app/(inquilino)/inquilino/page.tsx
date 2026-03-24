@@ -158,7 +158,7 @@ export default function InquilinoInicio() {
             </p>
             <p className="text-xs text-amber-700 mt-0.5">
               El propietario ha aceptado y firmado tu solicitud para{" "}
-              <strong>{contratoPendienteFirma.viviendas?.titulo}</strong>. Firma el contrato para continuar.
+              <strong>{contratoPendienteFirma.vivienda?.titulo}</strong>. Firma el contrato para continuar.
             </p>
           </div>
           <Link href={getCheckoutUrl(contratoPendienteFirma)} className="shrink-0">
@@ -177,7 +177,7 @@ export default function InquilinoInicio() {
               Solicitud enviada
             </p>
             <p className="text-xs text-indigo-700 mt-0.5">
-              Tu solicitud para <strong>{pendientes[0].viviendas?.titulo}</strong> está siendo revisada por el propietario.
+              Tu solicitud para <strong>{pendientes[0].vivienda?.titulo}</strong> está siendo revisada por el propietario.
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-xs text-indigo-600 shrink-0">
@@ -194,7 +194,7 @@ export default function InquilinoInicio() {
               Solicitud rechazada
             </p>
             <p className="text-xs text-rose-700 mt-0.5">
-              Tu solicitud para <strong>{rechazadas[0].viviendas?.titulo}</strong> no fue aceptada.
+              Tu solicitud para <strong>{rechazadas[0].vivienda?.titulo}</strong> no fue aceptada.
               {rechazadas[0].motivo_rechazo && (
                 <> Motivo: {rechazadas[0].motivo_rechazo}</>
               )}
@@ -265,7 +265,7 @@ export default function InquilinoInicio() {
               </span>
             </div>
             <p className="text-2xl font-bold text-slate-900">
-              {proximaEstancia ? <><NumberTicker value={proximaEstancia.viviendas?.precio_mes ?? 0} />€</> : "--"}
+              {proximaEstancia ? <><NumberTicker value={proximaEstancia.vivienda?.precio_mes ?? 0} />€</> : "--"}
             </p>
             <p className="text-xs text-slate-500 mt-0.5">Próximo pago</p>
           </CardContent>
@@ -292,10 +292,10 @@ export default function InquilinoInicio() {
           <CardContent>
             {proximaEstancia ? (
               <div className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl ring-1 ring-slate-200">
-                {proximaEstancia.viviendas?.fotos?.[0] ? (
+                {proximaEstancia.vivienda?.fotos?.[0] ? (
                   <img
-                    src={proximaEstancia.viviendas.fotos[0]}
-                    alt={proximaEstancia.viviendas.titulo}
+                    src={proximaEstancia.vivienda.fotos[0]}
+                    alt={proximaEstancia.vivienda.titulo}
                     className="h-14 w-14 rounded-xl object-cover shrink-0 ring-1 ring-slate-200"
                   />
                 ) : (
@@ -307,11 +307,11 @@ export default function InquilinoInicio() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-semibold text-slate-900 text-sm">
-                        {proximaEstancia.viviendas?.titulo ?? "Vivienda"}
+                        {proximaEstancia.vivienda?.titulo ?? "Vivienda"}
                       </h3>
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="h-3 w-3" />
-                        {proximaEstancia.viviendas?.ciudad}
+                        {proximaEstancia.vivienda?.ciudad}
                       </p>
                     </div>
                     <Badge className={getEstadoBadge(proximaEstancia).className + " text-xs shrink-0"}>
@@ -470,10 +470,10 @@ export default function InquilinoInicio() {
                   key={sol.id}
                   className="flex items-center gap-3 p-3 bg-white rounded-xl ring-1 ring-slate-200 hover:shadow-sm transition-shadow"
                 >
-                  {sol.viviendas?.fotos?.[0] ? (
+                  {sol.vivienda?.fotos?.[0] ? (
                     <img
-                      src={sol.viviendas.fotos[0]}
-                      alt={sol.viviendas.titulo}
+                      src={sol.vivienda.fotos[0]}
+                      alt={sol.vivienda.titulo}
                       className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200 shrink-0"
                     />
                   ) : (
@@ -483,7 +483,7 @@ export default function InquilinoInicio() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-slate-900 truncate">
-                      {sol.viviendas?.titulo ?? "Vivienda"}
+                      {sol.vivienda?.titulo ?? "Vivienda"}
                     </p>
                     <p className="text-xs text-slate-500">
                       {formatDate(sol.fecha_entrada)} – {formatDate(sol.fecha_salida)}

@@ -228,13 +228,13 @@ export default function SolicitudesPage() {
                 </div>
 
                 {/* Vivienda info card */}
-                {solicitudActiva.viviendas && (
+                {solicitudActiva.vivienda && (
                   <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-4 space-y-3">
                     <div className="flex items-start gap-3">
-                      {solicitudActiva.viviendas.fotos?.[0] ? (
+                      {solicitudActiva.vivienda.fotos?.[0] ? (
                         <img
-                          src={solicitudActiva.viviendas.fotos[0]}
-                          alt={solicitudActiva.viviendas.titulo}
+                          src={solicitudActiva.vivienda.fotos[0]}
+                          alt={solicitudActiva.vivienda.titulo}
                           className="h-16 w-20 rounded-lg object-cover ring-1 ring-slate-200 shrink-0"
                         />
                       ) : (
@@ -243,24 +243,24 @@ export default function SolicitudesPage() {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-900 text-sm truncate">{solicitudActiva.viviendas.titulo}</p>
+                        <p className="font-semibold text-slate-900 text-sm truncate">{solicitudActiva.vivienda.titulo}</p>
                         <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                           <MapPin className="h-3 w-3" />
-                          {solicitudActiva.viviendas.barrio ? `${solicitudActiva.viviendas.barrio}, ` : ""}{solicitudActiva.viviendas.ciudad.split("-")[0]}
+                          {solicitudActiva.vivienda.barrio ? `${solicitudActiva.vivienda.barrio}, ` : ""}{solicitudActiva.vivienda.ciudad.split("-")[0]}
                         </p>
                         <div className="flex gap-3 mt-1.5">
                           <span className="text-xs text-slate-500 flex items-center gap-1">
-                            <Euro className="h-3 w-3" /> {solicitudActiva.viviendas.precio_mes}€/mes
+                            <Euro className="h-3 w-3" /> {solicitudActiva.vivienda.precio_mes}€/mes
                           </span>
                           <span className="text-xs text-slate-500">
-                            Fianza: {solicitudActiva.viviendas.fianza_importe}€
+                            Fianza: {solicitudActiva.vivienda.fianza_importe}€
                           </span>
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2 text-xs text-slate-500">
                       <span className="bg-white px-2 py-0.5 rounded-full ring-1 ring-slate-200">
-                        Estancia: {solicitudActiva.viviendas.estancia_minima}–{solicitudActiva.viviendas.estancia_maxima} meses
+                        Estancia: {solicitudActiva.vivienda.estancia_minima}–{solicitudActiva.vivienda.estancia_maxima} meses
                       </span>
                     </div>
                   </div>
@@ -561,12 +561,12 @@ function SolicitudCard({
         </div>
 
         {/* Vivienda info inline */}
-        {s.viviendas && (
+        {s.vivienda && (
           <div className="mt-3 flex items-center gap-2 bg-slate-50 ring-1 ring-slate-100 rounded-lg p-2.5">
-            {s.viviendas.fotos?.[0] ? (
+            {s.vivienda.fotos?.[0] ? (
               <img
-                src={s.viviendas.fotos[0]}
-                alt={s.viviendas.titulo}
+                src={s.vivienda.fotos[0]}
+                alt={s.vivienda.titulo}
                 className="h-10 w-12 rounded-md object-cover ring-1 ring-slate-200 shrink-0"
               />
             ) : (
@@ -575,9 +575,9 @@ function SolicitudCard({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium text-slate-900 truncate">{s.viviendas.titulo}</p>
+              <p className="text-xs font-medium text-slate-900 truncate">{s.vivienda.titulo}</p>
               <p className="text-[11px] text-slate-400">
-                {s.viviendas.ciudad.split("-")[0]} · {s.viviendas.precio_mes}€/mes
+                {s.vivienda.ciudad.split("-")[0]} · {s.vivienda.precio_mes}€/mes
               </p>
             </div>
           </div>
