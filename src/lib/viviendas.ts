@@ -10,6 +10,7 @@ export interface Vivienda {
   direccion: string;
   barrio: string | null;
   ciudad: string;
+  provincia: string;
   precio_mes: number;
   fianza_importe: number;
   habitaciones: number;
@@ -34,6 +35,7 @@ export interface PublicarViviendaInput {
   direccion: string;
   barrio?: string;
   ciudad: string;
+  provincia: string;
   precio_mes: number;
   fianza_importe: number;
   habitaciones: number;
@@ -49,6 +51,7 @@ export interface PublicarViviendaInput {
 }
 
 export interface FiltrosVivienda {
+  provincia?: string;
   ciudad?: string;
   motivo?: string;
   precioMin?: number;
@@ -74,31 +77,43 @@ export async function publicarVivienda(
       const urls: string[] = [];
 
       for (const foto of fotos) {
-        // Obtener URL firmada del backend
-        const { signedUrl, publicUrl } = await api.post<{
-          signedUrl: string;
-          publicUrl: string;
-        }>(`/viviendas/${vivienda.id}/fotos/upload-url`, {
-          filename: foto.name,
-        });
+        try {
+          const { signedUrl, publicUrl } = await api.post<{
+            signedUrl: string;
+            publicUrl: string;
+          }>(`/viviendas/${vivienda.id}/fotos/upload-url`, {
+            filename: foto.name,
+          });
 
-        // Subir directamente a Supabase Storage con la URL firmada
-        await fetch(signedUrl, {
-          method: "PUT",
-          body: foto,
-          headers: { "Content-Type": foto.type },
-        });
+          const uploadRes = await fetch(signedUrl, {
+            method: "PUT",
+            body: foto,
+            headers: { "Content-Type": foto.type },
+          });
 
-        urls.push(publicUrl);
+          if (uploadRes.ok) {
+            urls.push(publicUrl);
+          } else {
+            console.error(`Error subiendo foto ${foto.name}:`, uploadRes.status);
+          }
+        } catch (uploadErr) {
+          console.error(`Error subiendo foto ${foto.name}:`, uploadErr);
+        }
       }
 
       // Actualizar vivienda con las URLs de fotos
       if (urls.length > 0) {
-        const updated = await api.patch<Vivienda>(
-          `/viviendas/${vivienda.id}`,
-          { fotos: urls }
-        );
-        return { data: updated, error: null };
+        try {
+          const updated = await api.patch<Vivienda>(
+            `/viviendas/${vivienda.id}`,
+            { fotos: urls }
+          );
+          return { data: updated, error: null };
+        } catch (patchErr) {
+          console.error("Error guardando URLs de fotos en DB:", patchErr);
+          // La vivienda se creó pero las fotos no se guardaron en DB
+          return { data: vivienda, error: "Vivienda creada pero hubo un error al guardar las fotos. Editá la vivienda para subirlas de nuevo." };
+        }
       }
     }
 
@@ -116,6 +131,7 @@ export async function obtenerViviendas(
 ): Promise<{ data: Vivienda[]; error: string | null }> {
   try {
     const params = new URLSearchParams();
+    if (filtros?.provincia && filtros.provincia !== "todas") params.set("provincia", filtros.provincia);
     if (filtros?.ciudad && filtros.ciudad !== "todas") params.set("ciudad", filtros.ciudad);
     if (filtros?.motivo && filtros.motivo !== "todos") params.set("motivo", filtros.motivo);
     if (filtros?.precioMin !== undefined) params.set("precioMin", String(filtros.precioMin));
@@ -138,6 +154,8 @@ export async function actualizarVivienda(
   fotosExistentes?: string[]
 ): Promise<{ data: Vivienda | null; error: string | null }> {
   try {
+    // Only build fotos payload when caller explicitly manages photos
+    const gestionaFotos = fotosNuevas !== undefined || fotosExistentes !== undefined;
     let fotosFinales = fotosExistentes ?? [];
 
     // Subir fotos nuevas si las hay
@@ -158,10 +176,12 @@ export async function actualizarVivienda(
       }
     }
 
-    const data = await api.patch<Vivienda>(`/viviendas/${id}`, {
-      ...input,
-      fotos: fotosFinales,
-    });
+    const payload: Record<string, unknown> = { ...input };
+    if (gestionaFotos) {
+      payload.fotos = fotosFinales;
+    }
+
+    const data = await api.patch<Vivienda>(`/viviendas/${id}`, payload);
 
     return { data, error: null };
   } catch (e) {

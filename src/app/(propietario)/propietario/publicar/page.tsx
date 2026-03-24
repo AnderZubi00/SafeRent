@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { publicarVivienda } from "@/lib/viviendas";
+import LocationSelector from "@/components/forms/LocationSelector";
 
 const STEPS = [
   { id: 1, label: "Fotos y descripción", icon: Camera },
@@ -38,7 +39,7 @@ interface FormData {
   m2: string;
   num_registro_vivienda: string;
   direccion: string;
-  barrio: string;
+  provincia: string;
   ciudad: string;
   precio_mes: string;
   fianza_importe: string;
@@ -63,8 +64,8 @@ export default function PublicarViviendaPage() {
     m2: "",
     num_registro_vivienda: "",
     direccion: "",
-    barrio: "",
-    ciudad: "Donostia-San Sebastián",
+    provincia: "",
+    ciudad: "",
     precio_mes: "",
     fianza_importe: "",
     motivos: ["Estudios", "Trabajo temporal"],
@@ -77,12 +78,18 @@ export default function PublicarViviendaPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
-  function handleFotos(files: FileList | null) {
+  function handleFotoPrincipal(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const nuevas = [files[0], ...fotos.slice(1)];
+    setFotos(nuevas);
+    setFotosPreviews(nuevas.map((f) => URL.createObjectURL(f)));
+  }
+
+  function handleFotosAdicionales(files: FileList | null) {
     if (!files) return;
-    const nuevas = Array.from(files).slice(0, 5 - fotos.length);
-    const todas = [...fotos, ...nuevas].slice(0, 5);
-    setFotos(todas);
-    setFotosPreviews(todas.map((f) => URL.createObjectURL(f)));
+    const nuevas = [...fotos, ...Array.from(files)];
+    setFotos(nuevas);
+    setFotosPreviews(nuevas.map((f) => URL.createObjectURL(f)));
   }
 
   function eliminarFoto(idx: number) {
@@ -108,8 +115,9 @@ export default function PublicarViviendaPage() {
 
   function validateStep2() {
     if (!form.num_registro_vivienda.trim()) return "El número de registro es obligatorio";
+    if (!form.provincia) return "Selecciona una provincia";
+    if (!form.ciudad) return "Selecciona una ciudad";
     if (!form.direccion.trim()) return "La dirección es obligatoria";
-    if (!form.ciudad.trim()) return "La ciudad es obligatoria";
     return null;
   }
 
@@ -139,7 +147,7 @@ export default function PublicarViviendaPage() {
       titulo: form.titulo,
       descripcion: form.descripcion || undefined,
       direccion: form.direccion,
-      barrio: form.barrio || undefined,
+      provincia: form.provincia,
       ciudad: form.ciudad,
       precio_mes: Number(form.precio_mes),
       fianza_importe: Number(form.fianza_importe),
@@ -216,126 +224,93 @@ export default function PublicarViviendaPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               {/* Zona de fotos */}
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Fotos de la vivienda <span className="text-slate-400 font-normal normal-case">(hasta 5)</span>
-                </Label>
+              <div className="space-y-4">
+                {/* Hidden inputs */}
+                <input id="foto-principal-input" type="file" accept="image/*" className="hidden" onChange={(e) => handleFotoPrincipal(e.target.files)} />
+                <input id="fotos-adicionales-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFotosAdicionales(e.target.files)} />
 
-                {fotosPreviews.length === 0 ? (
-                  /* Estado vacío — drop zone grande */
-                  <label
-                    htmlFor="fotos-input"
-                    className="block border-2 border-dashed border-slate-200 rounded-xl p-8 text-center hover:border-indigo-400 hover:bg-indigo-50/40 cursor-pointer transition-all group"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => { e.preventDefault(); handleFotos(e.dataTransfer.files); }}
-                  >
-                    <div className="flex flex-col items-center gap-2 text-slate-400 group-hover:text-indigo-500 transition-colors">
-                      <Upload className="h-8 w-8" />
-                      <p className="text-sm font-medium">Arrastra las fotos aquí o haz clic para seleccionar</p>
-                      <p className="text-xs">JPG, PNG o WEBP · Máx. 5 fotos · 10 MB cada una</p>
-                    </div>
-                    <input
-                      id="fotos-input"
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => handleFotos(e.target.files)}
-                    />
-                  </label>
-                ) : (
-                  /* Grid de previsualizaciones */
-                  <div className="grid grid-cols-3 gap-3">
-                    {/* Foto principal (primera) */}
-                    <div className="col-span-2 relative h-44 rounded-xl overflow-hidden ring-1 ring-slate-200 group">
+                {/* — Foto principal — */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Foto principal <span className="text-rose-500">*</span>
+                  </Label>
+                  {fotosPreviews[0] ? (
+                    <div
+                      className="relative h-52 rounded-xl overflow-hidden ring-1 ring-slate-200 group cursor-pointer"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); handleFotoPrincipal(e.dataTransfer.files); }}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={fotosPreviews[0]} alt="Foto principal" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
-                      <button
-                        type="button"
-                        onClick={() => eliminarFoto(0)}
-                        className="absolute top-2 right-2 h-6 w-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <XIcon className="h-3.5 w-3.5 text-slate-700" />
-                      </button>
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all" />
                       <span className="absolute bottom-2 left-2 text-[10px] font-bold bg-black/50 text-white px-2 py-0.5 rounded-full">Principal</span>
-                    </div>
-
-                    {/* Fotos secundarias + añadir más */}
-                    <div className="grid grid-rows-2 gap-3">
-                      {[1, 2].map((n) =>
-                        fotosPreviews[n] ? (
-                          <div key={n} className="relative rounded-xl overflow-hidden ring-1 ring-slate-200 group">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={fotosPreviews[n]} alt={`Foto ${n + 1}`} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
-                            <button
-                              type="button"
-                              onClick={() => eliminarFoto(n)}
-                              className="absolute top-1.5 right-1.5 h-5 w-5 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <XIcon className="h-3 w-3 text-slate-700" />
-                            </button>
-                          </div>
-                        ) : (
-                          <label
-                            key={n}
-                            htmlFor="fotos-input"
-                            className="border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 cursor-pointer transition-all"
-                          >
-                            <Upload className="h-5 w-5" />
-                          </label>
-                        )
-                      )}
-                    </div>
-
-                    {/* Fila adicional si hay fotos 3 y 4 */}
-                    {(fotosPreviews[3] || fotosPreviews[4] || fotos.length < 5) && (
-                      <div className="col-span-3 flex gap-3">
-                        {[3, 4].map((n) =>
-                          fotosPreviews[n] ? (
-                            <div key={n} className="relative flex-1 h-20 rounded-xl overflow-hidden ring-1 ring-slate-200 group">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={fotosPreviews[n]} alt={`Foto ${n + 1}`} className="w-full h-full object-cover" />
-                              <button
-                                type="button"
-                                onClick={() => eliminarFoto(n)}
-                                className="absolute top-1.5 right-1.5 h-5 w-5 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                <XIcon className="h-3 w-3 text-slate-700" />
-                              </button>
-                            </div>
-                          ) : fotos.length < 5 ? (
-                            <label
-                              key={n}
-                              htmlFor="fotos-input"
-                              className="flex-1 h-20 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-300 hover:border-indigo-300 hover:text-indigo-400 cursor-pointer transition-all"
-                            >
-                              <Upload className="h-5 w-5" />
-                            </label>
-                          ) : null
-                        )}
-                        {fotos.length < 5 && (
-                          <input id="fotos-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFotos(e.target.files)} />
-                        )}
+                      <div className="absolute inset-0 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <label
+                          htmlFor="foto-principal-input"
+                          className="flex items-center gap-1.5 bg-white/90 hover:bg-white text-slate-700 text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer shadow-sm"
+                        >
+                          <Upload className="h-3.5 w-3.5" /> Cambiar
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => eliminarFoto(0)}
+                          className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-white text-xs font-semibold px-3 py-1.5 rounded-full shadow-sm"
+                        >
+                          <XIcon className="h-3.5 w-3.5" /> Eliminar
+                        </button>
                       </div>
-                    )}
+                    </div>
+                  ) : (
+                    <label
+                      htmlFor="foto-principal-input"
+                      className="flex flex-col items-center gap-2 border-2 border-dashed border-slate-200 rounded-xl p-10 text-center hover:border-indigo-400 hover:bg-indigo-50/40 cursor-pointer transition-all group text-slate-400 group-hover:text-indigo-500"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => { e.preventDefault(); handleFotoPrincipal(e.dataTransfer.files); }}
+                    >
+                      <Upload className="h-8 w-8" />
+                      <p className="text-sm font-medium">Arrastrá la foto principal aquí o hacé clic</p>
+                      <p className="text-xs">JPG, PNG o WEBP · 10 MB máx.</p>
+                    </label>
+                  )}
+                </div>
 
-                    {fotos.length === 0 && (
-                      <input id="fotos-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFotos(e.target.files)} />
+                {/* — Fotos adicionales — */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Fotos adicionales{" "}
+                    {fotos.length > 1 && (
+                      <span className="text-slate-400 font-normal normal-case">({fotos.length - 1} añadida{fotos.length - 1 !== 1 ? "s" : ""})</span>
                     )}
+                  </Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    {fotosPreviews.slice(1).map((preview, i) => (
+                      <div key={i} className="relative h-24 rounded-xl overflow-hidden ring-1 ring-slate-200 group">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt={`Foto ${i + 2}`} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all" />
+                        <button
+                          type="button"
+                          onClick={() => eliminarFoto(i + 1)}
+                          className="absolute top-1.5 right-1.5 h-6 w-6 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XIcon className="h-3 w-3 text-slate-700" />
+                        </button>
+                      </div>
+                    ))}
+                    {/* Botón añadir — siempre visible */}
+                    <label
+                      htmlFor="fotos-adicionales-input"
+                      className="h-24 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center gap-1 text-slate-300 hover:border-indigo-300 hover:text-indigo-400 cursor-pointer transition-all group"
+                    >
+                      <Upload className="h-5 w-5" />
+                      <span className="text-[10px] font-medium group-hover:text-indigo-400 text-slate-400">Añadir</span>
+                    </label>
                   </div>
-                )}
-
-                {fotosPreviews.length > 0 && fotos.length < 5 && (
-                  <>
-                    <input id="fotos-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFotos(e.target.files)} />
-                    <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                      <ImageIcon className="h-3.5 w-3.5" />
-                      {fotos.length}/5 fotos añadidas — puedes añadir {5 - fotos.length} más
-                    </p>
-                  </>
-                )}
+                  <p className="text-xs text-slate-400 flex items-center gap-1.5">
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    Sin límite · JPG, PNG o WEBP · 10 MB cada una
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -396,8 +371,8 @@ export default function PublicarViviendaPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="bg-indigo-50 ring-1 ring-indigo-200 rounded-xl p-3 text-sm text-indigo-800">
-                <p className="font-semibold">Requerido por ley (2026)</p>
-                <p className="text-xs mt-1">El número de registro de vivienda es obligatorio para anuncios de alquiler temporal en Euskadi.</p>
+                <p className="font-semibold">Número de registro</p>
+                <p className="text-xs mt-1">Según la normativa local de tu comunidad, puede ser obligatorio disponer de un número de registro para alquiler temporal.</p>
               </div>
               <div className="space-y-2">
                 <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -408,38 +383,17 @@ export default function PublicarViviendaPage() {
                   value={form.num_registro_vivienda}
                   onChange={(e) => set("num_registro_vivienda", e.target.value)}
                 />
-                <p className="text-xs text-slate-500">Tramítalo en la Ventanilla Única de Turismo de Euskadi</p>
+                <p className="text-xs text-slate-500">Consulta la normativa de tu comunidad autónoma para obtener tu número de registro</p>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Dirección completa <span className="text-rose-500">*</span>
-                </Label>
-                <Input
-                  placeholder="Calle, número, piso, puerta"
-                  value={form.direccion}
-                  onChange={(e) => set("direccion", e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Barrio</Label>
-                  <Input
-                    placeholder="Parte Vieja, Gros..."
-                    value={form.barrio}
-                    onChange={(e) => set("barrio", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Ciudad <span className="text-rose-500">*</span>
-                  </Label>
-                  <Input
-                    placeholder="Donostia-San Sebastián"
-                    value={form.ciudad}
-                    onChange={(e) => set("ciudad", e.target.value)}
-                  />
-                </div>
-              </div>
+
+              <LocationSelector
+                provincia={form.provincia}
+                ciudad={form.ciudad}
+                direccion={form.direccion}
+                onProvinciaChange={(v) => set("provincia", v)}
+                onCiudadChange={(v) => set("ciudad", v)}
+                onDireccionChange={(v) => set("direccion", v)}
+              />
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
                   <ChevronLeft className="mr-1 h-4 w-4" /> Atrás

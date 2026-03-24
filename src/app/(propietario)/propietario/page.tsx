@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   MapPin, Plus, Users, Wallet, CheckCircle2, TrendingUp,
   Building2, ArrowRight, PartyPopper, Loader2, Calendar,
-  User, Clock, FileText, Inbox,
+  User, Clock, FileText, Inbox, EyeOff, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePropietario } from "@/context/PropietarioContext";
@@ -271,37 +271,49 @@ function PropietarioInicioContent() {
             const color = getColor(v.id);
             return (
               <Card key={v.id} className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-all duration-200 overflow-hidden group">
-                <div className={`h-28 bg-linear-to-br ${color} flex items-center justify-center relative`}>
-                  {v.fotos?.[0] ? (
-                    <img src={v.fotos[0]} alt={v.titulo} className="absolute inset-0 w-full h-full object-cover opacity-80" />
-                  ) : (
-                    <Building2 className="h-9 w-9 text-white/60" />
-                  )}
-                  {v.verificada && (
-                    <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full ring-1 ring-emerald-200 z-10">
-                      <CheckCircle2 className="h-2.5 w-2.5" /> Verificada
-                    </span>
-                  )}
-                </div>
-
-                <CardContent className="p-4 space-y-3">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{v.titulo}</h3>
-                    <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                      <MapPin className="h-3 w-3 shrink-0" />
-                      {v.barrio ? `${v.barrio}, ` : ""}{v.ciudad.split("-")[0]}
-                    </p>
+                <Link href={`/propietario/vivienda/${v.id}`} className="block">
+                  <div className={`h-28 bg-linear-to-br ${color} flex items-center justify-center relative`}>
+                    {v.fotos?.[0] ? (
+                      <img
+                        src={v.fotos[0]}
+                        alt={v.titulo}
+                        className={cn(
+                          "absolute inset-0 w-full h-full object-cover",
+                          !v.activa && "grayscale"
+                        )}
+                        onError={(e) => { e.currentTarget.style.display = "none"; }}
+                      />
+                    ) : (
+                      <Building2 className="h-9 w-9 text-white/60" />
+                    )}
+                    {v.verificada && (
+                      <span className="absolute top-2.5 left-2.5 flex items-center gap-1 bg-white/90 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full ring-1 ring-emerald-200 z-10">
+                        <CheckCircle2 className="h-2.5 w-2.5" /> Verificada
+                      </span>
+                    )}
                   </div>
 
-                  <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                    <p className="font-bold text-slate-900">
-                      {v.precio_mes}€ <span className="text-xs font-normal text-slate-400">/mes</span>
-                    </p>
-                    <p className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full ring-1 ring-slate-200">
-                      {v.habitaciones} hab · {v.m2}m²
-                    </p>
-                  </div>
+                  <CardContent className="p-4 space-y-3">
+                    <div>
+                      <h3 className="font-semibold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors truncate">{v.titulo}</h3>
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 shrink-0" />
+                        {v.ciudad}{v.provincia ? `, ${v.provincia}` : ""}
+                      </p>
+                    </div>
 
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                      <p className="font-bold text-slate-900">
+                        {v.precio_mes}€ <span className="text-xs font-normal text-slate-400">/mes</span>
+                      </p>
+                      <p className="text-[10px] text-slate-400 bg-slate-50 px-2 py-0.5 rounded-full ring-1 ring-slate-200">
+                        {v.habitaciones} hab · {v.m2}m²
+                      </p>
+                    </div>
+                  </CardContent>
+                </Link>
+
+                <div className="px-4 pb-4">
                   <div className="flex gap-2 items-center">
                     <ToggleActivaButton id={v.id} activa={v.activa} />
                     <Link href={`/propietario/vivienda/${v.id}/editar`} className="flex-1">
@@ -309,13 +321,13 @@ function PropietarioInicioContent() {
                         Editar
                       </Button>
                     </Link>
-                    <Link href={`/vivienda/${v.id}`}>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0 ring-1 ring-slate-200 border-0">
-                        <ArrowRight className="h-3 w-3" />
+                    <Link href={`/vivienda/${v.id}`} target="_blank" rel="noopener noreferrer">
+                      <Button size="sm" variant="outline" className="h-7 w-7 p-0 ring-1 ring-slate-200 border-0" title="Ver anuncio público">
+                        <ExternalLink className="h-3 w-3" />
                       </Button>
                     </Link>
                   </div>
-                </CardContent>
+                </div>
               </Card>
             );
           })}

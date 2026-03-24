@@ -75,7 +75,7 @@ Hay exactamente 3 capas de context. No agregar más sin razón fuerte.
 |---|---|---|
 | `AuthContext` | `src/context/AuthContext.tsx` (root layout) | Todos los usuarios autenticados — user object, role, session |
 | `InquilinoContext` | `src/app/(inquilino)/layout.tsx` | Data específica del inquilino (solicitudes, pagos, reservas) |
-| `PropietarioContext` | `src/app/(propietario)/layout.tsx` | Data específica del propietario (viviendas, solicitudes activas) |
+| `PropietarioContext` | `src/context/PropietarioContext.tsx` (used in `(propietario)/layout.tsx`) | Data del propietario: viviendas, solicitudes, pagos, solicitudesPendientes, `recargar()`, `actualizarViviendaLocal(id, patch)` |
 
 ### Patrón de consumo
 

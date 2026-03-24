@@ -149,8 +149,7 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
                   <h1 className="text-2xl font-bold text-slate-900">{vivienda.titulo}</h1>
                   <p className="mt-1 text-slate-500 flex items-center gap-1.5">
                     <MapPin className="h-4 w-4" />
-                    {vivienda.barrio ? `${vivienda.barrio}, ` : ""}
-                    {vivienda.ciudad}
+                    {vivienda.ciudad}{vivienda.provincia ? `, ${vivienda.provincia}` : ""}
                   </p>
                 </div>
                 <div className="text-right shrink-0">

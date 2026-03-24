@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { toggleActivaVivienda } from "../actions";
+import { usePropietario } from "@/context/PropietarioContext";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 interface Props {
@@ -9,17 +10,17 @@ interface Props {
   activa: boolean;
 }
 
-export default function ToggleActivaButton({ id, activa: initialActiva }: Props) {
-  const [activa, setActiva] = useState(initialActiva);
+export default function ToggleActivaButton({ id, activa }: Props) {
   const [isPending, startTransition] = useTransition();
+  const { actualizarViviendaLocal } = usePropietario();
 
   function handleToggle() {
     const nuevoEstado = !activa;
-    setActiva(nuevoEstado); // optimistic update
+    actualizarViviendaLocal(id, { activa: nuevoEstado }); // optimistic
 
     startTransition(async () => {
       const { error } = await toggleActivaVivienda(id, nuevoEstado);
-      if (error) setActiva(!nuevoEstado); // revertir si falla
+      if (error) actualizarViviendaLocal(id, { activa }); // revert
     });
   }
 

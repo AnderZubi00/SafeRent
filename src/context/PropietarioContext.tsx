@@ -34,6 +34,7 @@ interface PropietarioState {
   solicitudesPendientes: number;
   cargando: boolean;
   recargar: () => Promise<void>;
+  actualizarViviendaLocal: (id: string, patch: Partial<Vivienda>) => void;
 }
 
 const PropietarioContext = createContext<PropietarioState>({
@@ -43,6 +44,7 @@ const PropietarioContext = createContext<PropietarioState>({
   solicitudesPendientes: 0,
   cargando: true,
   recargar: async () => {},
+  actualizarViviendaLocal: () => {},
 });
 
 export function PropietarioProvider({ children }: { children: ReactNode }) {
@@ -80,6 +82,15 @@ export function PropietarioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const actualizarViviendaLocal = useCallback(
+    (id: string, patch: Partial<Vivienda>) => {
+      setViviendas((prev) =>
+        prev.map((v) => (v.id === id ? { ...v, ...patch } : v))
+      );
+    },
+    []
+  );
+
   useEffect(() => {
     cargar();
   }, [cargar]);
@@ -97,8 +108,9 @@ export function PropietarioProvider({ children }: { children: ReactNode }) {
       solicitudesPendientes,
       cargando,
       recargar: cargar,
+      actualizarViviendaLocal,
     }),
-    [viviendas, solicitudes, pagos, solicitudesPendientes, cargando, cargar]
+    [viviendas, solicitudes, pagos, solicitudesPendientes, cargando, cargar, actualizarViviendaLocal]
   );
 
   return (

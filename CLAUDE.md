@@ -57,11 +57,18 @@ Three React Context layers, each scoped to its route group:
 
 - **`AuthContext`** (root layout) — current `usuario` with `rol`, `cargando`, `cerrarSesion`. Listens for Supabase auth state changes.
 - **`InquilinoContext`** (`(inquilino)/layout.tsx`) — `solicitudes`, `documentos`, `pagos`, `recargar()`.
-- **`PropietarioContext`** (`(propietario)/layout.tsx`) — `viviendas`, `solicitudes`, `pagos`, `solicitudesPendientes`, `recargar()`.
+- **`PropietarioContext`** (`(propietario)/layout.tsx`) — `viviendas`, `solicitudes`, `pagos`, `solicitudesPendientes`, `recargar()`, `actualizarViviendaLocal()` (optimistic local update for single vivienda fields like `activa`).
 
 ### Supabase Integration
 
 ### Backend API (NestJS)
+
+### Location System
+
+- **Static data**: `src/data/spain-locations.ts` — 50 Spanish provinces + cities per province. Helpers: `getAllProvincias()`, `getCiudadesByProvincia(code)`, `getProvinciaByCode(code)`, `getProvinciaByName(name)`.
+- **Shared component**: `src/components/forms/LocationSelector.tsx` — cascading Province → City selects with Nominatim address validation. Used in publicar and editar forms.
+- **Address validation**: `src/lib/address-validation.ts` — Nominatim (OpenStreetMap) geocoding, non-blocking (informational only).
+- **DB field**: `provincia` column on `viviendas` table (NOT NULL, default ""). Backend accepts it in create/update/filter DTOs.
 
 All business data (viviendas, solicitudes, contratos, pagos) is fetched from the NestJS backend via `src/lib/api.ts`. Supabase is used ONLY for:
 - **Auth state**: `onAuthStateChange` listener, session management
@@ -72,6 +79,9 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 - `src/lib/supabase/client.ts` — browser client (Client Components)
 - `src/lib/supabase/server.ts` — server client with cookie management (Server Components / API routes)
 - Data access helpers (call NestJS backend via api.ts): `src/lib/auth.ts`, `src/lib/solicitudes.ts`, `src/lib/viviendas.ts`, `src/lib/contratos.ts`, `src/lib/pagos.ts`
+- Location data: `src/data/spain-locations.ts` — static province/city data for Spain
+- Shared form components: `src/components/forms/LocationSelector.tsx` — cascading location selector
+- Address validation: `src/lib/address-validation.ts` — Nominatim geocoding utility
 - Real-time hooks: `src/hooks/useNotifications.ts` — Socket.io hook for WebSocket events (JWT auth, `/notifications` namespace)
 
 **User roles:** `INQUILINO`, `PROPIETARIO`, `ADMINISTRADOR`
@@ -85,6 +95,13 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 5. Real-time updates via Socket.io WebSocket (`/notifications` namespace) with polling fallback
 
 ### Component Conventions
+
+### Propietario Dashboard
+
+- **Photo management**: Photos stored in Supabase Storage bucket `viviendas-fotos`, URLs in `viviendas.fotos[]` array in DB.
+- **Publish form** (`/propietario/publicar`): Separate "foto principal" slot + unlimited additional photos grid. Uses LocationSelector for cascading provincia/ciudad.
+- **Toggle Visible/Pausada**: `ToggleActivaButton` uses optimistic update via `actualizarViviendaLocal()` from PropietarioContext. Pausada viviendas show grayscale photo. Backend `findAll()` filters `activa: true` for public search — pausada viviendas are hidden from tenants.
+- **IMPORTANT**: `actualizarVivienda()` in `src/lib/viviendas.ts` only includes `fotos` in PATCH payload when `fotosNuevas` or `fotosExistentes` params are explicitly passed. This prevents accidental photo deletion on field-only updates (e.g., toggling `activa`).
 
 - **UI primitives:** shadcn/ui components in `src/components/ui/` (Radix UI based)
 - **Animations:** Custom wrappers in `src/components/motion/` (Framer Motion: `MotionFadeInUp`, `MotionStagger`, `MotionCard`)

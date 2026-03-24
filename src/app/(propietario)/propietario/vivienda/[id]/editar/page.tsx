@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { obtenerViviendaById, actualizarVivienda, type Vivienda } from "@/lib/viviendas";
+import LocationSelector from "@/components/forms/LocationSelector";
 
 const STEPS = [
   { id: 1, label: "Fotos y descripción", icon: Camera },
@@ -30,7 +31,7 @@ interface FormData {
   m2: string;
   num_registro_vivienda: string;
   direccion: string;
-  barrio: string;
+  provincia: string;
   ciudad: string;
   precio_mes: string;
   fianza_importe: string;
@@ -92,7 +93,7 @@ export default function EditarViviendaPage() {
         m2: String(v.m2),
         num_registro_vivienda: v.num_registro_vivienda,
         direccion: v.direccion,
-        barrio: v.barrio ?? "",
+        provincia: v.provincia ?? "",
         ciudad: v.ciudad,
         precio_mes: String(v.precio_mes),
         fianza_importe: String(v.fianza_importe),
@@ -126,9 +127,7 @@ export default function EditarViviendaPage() {
 
   function handleFotasNuevas(files: FileList | null) {
     if (!files) return;
-    const total = fotosExistentes.length + fotosNuevas.length;
-    const slots = Math.max(0, 5 - total);
-    const nuevas = Array.from(files).slice(0, slots);
+    const nuevas = Array.from(files);
     const todas = [...fotosNuevas, ...nuevas];
     setFotosNuevas(todas);
     setFotosNuevasPreviews(todas.map((f) => URL.createObjectURL(f)));
@@ -149,8 +148,9 @@ export default function EditarViviendaPage() {
   }
   function validateStep2() {
     if (!form.num_registro_vivienda.trim()) return "El número de registro es obligatorio";
+    if (!form.provincia) return "Selecciona una provincia";
+    if (!form.ciudad) return "Selecciona una ciudad";
     if (!form.direccion.trim()) return "La dirección es obligatoria";
-    if (!form.ciudad.trim()) return "La ciudad es obligatoria";
     return null;
   }
   function validateStep3() {
@@ -179,7 +179,7 @@ export default function EditarViviendaPage() {
         titulo: form.titulo,
         descripcion: form.descripcion || undefined,
         direccion: form.direccion,
-        barrio: form.barrio || undefined,
+        provincia: form.provincia,
         ciudad: form.ciudad,
         precio_mes: Number(form.precio_mes),
         fianza_importe: Number(form.fianza_importe),
@@ -319,7 +319,7 @@ export default function EditarViviendaPage() {
                         <div className="flex flex-col items-center gap-2 text-slate-400 group-hover:text-indigo-500 transition-colors">
                           <Upload className="h-6 w-6" />
                           <p className="text-sm font-medium">Arrastra fotos o haz clic para seleccionar</p>
-                          <p className="text-xs">JPG, PNG o WEBP · Hasta {5 - fotosExistentes.length} fotos más</p>
+                          <p className="text-xs">JPG, PNG o WEBP · Sin límite de fotos</p>
                         </div>
                         <input id="fotos-nuevas-input" type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFotasNuevas(e.target.files)} />
                       </label>
@@ -414,8 +414,8 @@ export default function EditarViviendaPage() {
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="bg-indigo-50 ring-1 ring-indigo-200 rounded-xl p-3 text-sm text-indigo-800">
-                <p className="font-semibold">Requerido por ley (2026)</p>
-                <p className="text-xs mt-1">El número de registro es obligatorio para anuncios de alquiler temporal en Euskadi.</p>
+                <p className="font-semibold">Número de registro</p>
+                <p className="text-xs mt-1">Según la normativa local de tu comunidad, puede ser obligatorio disponer de un número de registro para alquiler temporal.</p>
               </div>
 
               <div className="space-y-2">
@@ -423,25 +423,17 @@ export default function EditarViviendaPage() {
                   Número de registro <span className="text-rose-500">*</span>
                 </Label>
                 <Input placeholder="VT-2025-SS-00123" value={form.num_registro_vivienda} onChange={(e) => set("num_registro_vivienda", e.target.value)} />
+                <p className="text-xs text-slate-500">Consulta la normativa de tu comunidad autónoma para obtener tu número de registro</p>
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Dirección completa <span className="text-rose-500">*</span>
-                </Label>
-                <Input placeholder="Calle, número, piso, puerta" value={form.direccion} onChange={(e) => set("direccion", e.target.value)} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Barrio</Label>
-                  <Input placeholder="Parte Vieja, Gros..." value={form.barrio} onChange={(e) => set("barrio", e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ciudad <span className="text-rose-500">*</span></Label>
-                  <Input placeholder="Donostia-San Sebastián" value={form.ciudad} onChange={(e) => set("ciudad", e.target.value)} />
-                </div>
-              </div>
+              <LocationSelector
+                provincia={form.provincia}
+                ciudad={form.ciudad}
+                direccion={form.direccion}
+                onProvinciaChange={(v) => set("provincia", v)}
+                onCiudadChange={(v) => set("ciudad", v)}
+                onDireccionChange={(v) => set("direccion", v)}
+              />
 
               <div className="flex gap-3">
                 <Button variant="outline" onClick={() => setStep(1)} className="flex-1">

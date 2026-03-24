@@ -13,6 +13,7 @@ import {
   AlertCircle, RefreshCw,
 } from "lucide-react";
 import { obtenerViviendas, type Vivienda } from "@/lib/viviendas";
+import { getAllProvincias, getCiudadesByProvincia } from "@/data/spain-locations";
 
 const CARD_COLORS = [
   "from-indigo-500 to-indigo-700",
@@ -32,7 +33,7 @@ function getColor(id: string) {
 }
 
 const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
-const CIUDADES = ["Donostia-San Sebastián", "Bilbao", "Vitoria-Gasteiz"];
+const TODAS_PROVINCIAS = getAllProvincias();
 
 export default function BuscarPage() {
   const [viviendas, setViviendas] = useState<Vivienda[]>([]);
@@ -41,7 +42,9 @@ export default function BuscarPage() {
 
   // Filtros en estado local
   const [busqueda, setBusqueda] = useState("");
+  const [provinciaFiltro, setProvinciaFiltro] = useState("todas");
   const [ciudadFiltro, setCiudadFiltro] = useState("todas");
+  const ciudadesDisponibles = provinciaFiltro !== "todas" ? getCiudadesByProvincia(provinciaFiltro) : [];
   const [motivoFiltro, setMotivoFiltro] = useState("todos");
   const [precioMin, setPrecioMin] = useState("");
   const [precioMax, setPrecioMax] = useState("");
@@ -53,7 +56,12 @@ export default function BuscarPage() {
   const cargarViviendas = useCallback(async () => {
     setCargando(true);
     setErrorMsg(null);
+    // Resolve provincia name from code for backend filter
+    const provName = provinciaFiltro !== "todas"
+      ? TODAS_PROVINCIAS.find(p => p.code === provinciaFiltro)?.name
+      : undefined;
     const { data, error } = await obtenerViviendas({
+      provincia: provName,
       ciudad: ciudadFiltro,
       motivo: motivoFiltro,
       precioMin: precioMin ? Number(precioMin) : undefined,
@@ -63,7 +71,7 @@ export default function BuscarPage() {
     setCargando(false);
     if (error) { setErrorMsg(error); return; }
     setViviendas(data);
-  }, [ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro]);
+  }, [provinciaFiltro, ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro]);
 
   useEffect(() => {
     cargarViviendas();
@@ -78,7 +86,7 @@ export default function BuscarPage() {
       return (
         v.titulo.toLowerCase().includes(q) ||
         v.ciudad.toLowerCase().includes(q) ||
-        (v.barrio ?? "").toLowerCase().includes(q) ||
+        (v.provincia ?? "").toLowerCase().includes(q) ||
         v.direccion.toLowerCase().includes(q)
       );
     })
@@ -91,6 +99,7 @@ export default function BuscarPage() {
   // Chips de filtros activos
   type ActiveFilter = { label: string; remove: () => void };
   const filtrosActivos: ActiveFilter[] = [];
+  if (provinciaFiltro !== "todas") filtrosActivos.push({ label: TODAS_PROVINCIAS.find(p => p.code === provinciaFiltro)?.name ?? provinciaFiltro, remove: () => { setProvinciaFiltro("todas"); setCiudadFiltro("todas"); } });
   if (ciudadFiltro !== "todas") filtrosActivos.push({ label: ciudadFiltro.split("-")[0], remove: () => setCiudadFiltro("todas") });
   if (motivoFiltro !== "todos") filtrosActivos.push({ label: motivoFiltro, remove: () => setMotivoFiltro("todos") });
   if (precioMin) filtrosActivos.push({ label: `Desde ${precioMin}€`, remove: () => setPrecioMin("") });
@@ -98,6 +107,7 @@ export default function BuscarPage() {
   if (habFiltro > 0) filtrosActivos.push({ label: `${habFiltro}+ hab.`, remove: () => setHabFiltro(0) });
 
   function resetFiltros() {
+    setProvinciaFiltro("todas");
     setCiudadFiltro("todas");
     setMotivoFiltro("todos");
     setPrecioMin("");
@@ -132,11 +142,20 @@ export default function BuscarPage() {
             <div className="flex gap-2">
               <select
                 className="rounded-xl ring-1 ring-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                value={provinciaFiltro}
+                onChange={(e) => { setProvinciaFiltro(e.target.value); setCiudadFiltro("todas"); }}
+              >
+                <option value="todas">Provincia</option>
+                {TODAS_PROVINCIAS.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+              </select>
+              <select
+                className="rounded-xl ring-1 ring-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer disabled:opacity-50"
                 value={ciudadFiltro}
                 onChange={(e) => setCiudadFiltro(e.target.value)}
+                disabled={provinciaFiltro === "todas"}
               >
-                <option value="todas">Todas las ciudades</option>
-                {CIUDADES.map((c) => <option key={c} value={c}>{c.split("-")[0]}</option>)}
+                <option value="todas">{provinciaFiltro === "todas" ? "Ciudad" : "Todas las ciudades"}</option>
+                {ciudadesDisponibles.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
               <select
                 className="rounded-xl ring-1 ring-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
@@ -291,7 +310,7 @@ export default function BuscarPage() {
                     `${viviendasFiltradas.length} vivienda${viviendasFiltradas.length !== 1 ? "s" : ""} disponible${viviendasFiltradas.length !== 1 ? "s" : ""}`
                   )}
                 </h1>
-                <p className="text-sm text-slate-500 mt-0.5">Alquileres temporales verificados en Euskadi</p>
+                <p className="text-sm text-slate-500 mt-0.5">Alquileres temporales verificados</p>
               </div>
               <div className="flex items-center gap-3">
                 <select
@@ -408,7 +427,7 @@ export default function BuscarPage() {
                         <h3 className="font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors truncate">{v.titulo}</h3>
                         <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
                           <MapPin className="h-3 w-3 shrink-0" />
-                          {v.barrio ? `${v.barrio}, ` : ""}{v.ciudad.split("-")[0]}
+                          {v.ciudad}{v.provincia ? `, ${v.provincia}` : ""}
                         </p>
 
                         {/* Características */}
@@ -448,7 +467,7 @@ export default function BuscarPage() {
             {!cargando && !errorMsg && viviendasFiltradas.length > 0 && (
               <div className="mt-6 text-center">
                 <p className="text-xs text-slate-400">
-                  Mostrando {viviendasFiltradas.length} vivienda{viviendasFiltradas.length !== 1 ? "s" : ""} · Todas cumplen la normativa de la Ventanilla Única 2026
+                  Mostrando {viviendasFiltradas.length} vivienda{viviendasFiltradas.length !== 1 ? "s" : ""} · Todas verificadas y con documentación en regla
                 </p>
               </div>
             )}
