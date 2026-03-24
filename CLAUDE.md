@@ -29,6 +29,7 @@ Required in `.env.local`:
 ```
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+NEXT_PUBLIC_API_URL=              # NestJS backend URL (default: http://localhost:3001)
 ```
 
 ## Architecture
@@ -59,9 +60,17 @@ Three React Context layers, each scoped to its route group:
 
 ### Supabase Integration
 
+### Backend API (NestJS)
+
+All business data (viviendas, solicitudes, contratos, pagos) is fetched from the NestJS backend via `src/lib/api.ts`. Supabase is used ONLY for:
+- **Auth state**: `onAuthStateChange` listener, session management
+- **Storage URLs**: displaying uploaded images/documents
+- **Token exchange**: Supabase token → POST /api/v1/auth/exchange → SafeRent JWT
+
+- `src/lib/api.ts` — HTTP client to NestJS backend
 - `src/lib/supabase/client.ts` — browser client (Client Components)
 - `src/lib/supabase/server.ts` — server client with cookie management (Server Components / API routes)
-- Data access helpers: `src/lib/auth.ts`, `src/lib/solicitudes.ts`, `src/lib/viviendas.ts`, `src/lib/contratos.ts`, `src/lib/pagos.ts`
+- Data access helpers (call NestJS backend via api.ts): `src/lib/auth.ts`, `src/lib/solicitudes.ts`, `src/lib/viviendas.ts`, `src/lib/contratos.ts`, `src/lib/pagos.ts`
 
 **User roles:** `INQUILINO`, `PROPIETARIO`, `ADMINISTRADOR`
 

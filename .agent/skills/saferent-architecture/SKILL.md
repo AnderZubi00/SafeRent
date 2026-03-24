@@ -15,6 +15,7 @@
 | Base de datos | Supabase (Postgres + RLS) |
 | Auth | Supabase Auth |
 | Storage | Supabase Storage |
+| Backend API | NestJS 11 (via src/lib/api.ts → NEXT_PUBLIC_API_URL) |
 | Path alias | `@/*` → `src/*` (configurado en `tsconfig.json`) |
 
 ---
@@ -23,34 +24,43 @@
 
 ```
 src/app/
-├── (auth)/                    # Login, register, password reset — sin layout autenticado
-│   ├── login/
-│   ├── register/
-│   └── reset-password/
-├── (inquilino)/               # Dashboard y flujos del inquilino
-│   ├── layout.tsx             # Wrappea InquilinoContext — requerido para todas las páginas de inquilino
-│   ├── dashboard/
-│   ├── solicitudes/
-│   │   └── nueva/
-│   ├── documentos/
-│   ├── pagos/
-│   └── reservas/
-├── (propietario)/             # Dashboard y flujos del propietario
-│   ├── layout.tsx             # Wrappea PropietarioContext — requerido para todas las páginas de propietario
-│   ├── dashboard/
-│   ├── viviendas/
-│   ├── solicitudes/
-│   ├── contratos/
-│   └── liquidaciones/
-├── (admin)/                   # Panel de admin — solo rol ADMINISTRADOR
+├── (auth)/                       # Login — sin layout autenticado
+│   └── login/                    # Unified login/register
+├── (inquilino)/                  # Dashboard y flujos del inquilino
+│   ├── layout.tsx                # Wrappea InquilinoContext — requerido para todas las páginas de inquilino
+│   └── inquilino/
+│       ├── page.tsx              # Tenant dashboard
+│       ├── checkout/             # Checkout flow
+│       ├── documentos/           # Documents
+│       ├── pagos/                # Payments history
+│       └── reservas/             # Reservations
+├── (propietario)/                # Dashboard y flujos del propietario
+│   ├── layout.tsx                # Wrappea PropietarioContext — requerido para todas las páginas de propietario
+│   └── propietario/
+│       ├── page.tsx              # Landlord dashboard
+│       ├── publicar/             # Publish new property
+│       ├── solicitudes/          # Review applications
+│       ├── contratos/            # Contracts
+│       ├── liquidaciones/        # Settlement/payouts
+│       └── vivienda/
+│           └── [id]/
+│               └── editar/       # Edit property
+├── (admin)/                      # Panel de admin — solo rol ADMINISTRADOR
 │   ├── layout.tsx
-│   └── dashboard/
-├── api/                       # API routes (server-side only)
-│   ├── contratos/
-│   │   └── generar/
-│   ├── email/
-│   └── webhooks/
-└── page.tsx                   # Landing page pública
+│   └── admin/
+│       ├── page.tsx              # Admin dashboard
+│       ├── verificacion/         # KYC verification review
+│       └── disputas/             # Disputes
+├── buscar/                       # Public property search
+├── vivienda/
+│   └── [id]/                     # Public property detail
+├── api/                          # API routes (server-side only)
+│   ├── contratos/generar/        # PDF generation
+│   ├── email/                    # Email endpoints
+│   └── kyc/                      # KYC endpoints
+│       ├── analizar/             # KYC analysis
+│       └── sesion/               # KYC session
+└── page.tsx                      # Public landing
 ```
 
 Todas las rutas nuevas DEBEN ir dentro del route group correcto. Nunca poner páginas de propietario dentro de `(inquilino)/` o viceversa.
@@ -87,7 +97,9 @@ Llamar `recargar()` del context después de mutaciones — no re-fetchear manual
 
 ---
 
-## Supabase Client Selection Rule
+## Supabase Client (Auth & Storage Only)
+
+Supabase **NO** se usa para queries de datos de negocio — solo para auth state y storage URLs. Todos los datos de negocio se obtienen del backend NestJS via `src/lib/api.ts`.
 
 Esta es la regla más crítica — el cliente equivocado causa bugs de auth o expone secrets del servidor.
 
@@ -114,7 +126,7 @@ Nunca importar `server.ts` en un Client Component — referencia `next/headers` 
 
 ## Data Helpers
 
-Todas las queries de Supabase están encapsuladas en `src/lib/`. Llamar estos helpers desde páginas y contexts — nunca escribir queries `.from()` crudas dentro de archivos de componentes o páginas.
+Los data helpers en `src/lib/` llaman al backend NestJS via `api.ts`. La excepción es `src/lib/supabase/` que se usa SOLO para auth state y storage URLs. Llamar estos helpers desde páginas y contexts — nunca escribir queries crudas dentro de archivos de componentes o páginas.
 
 | Archivo helper | Responsabilidad |
 |---|---|
@@ -131,6 +143,45 @@ const solicitudes = await getSolicitudesByInquilino(userId);
 
 // MAL — query cruda en un componente de página
 const { data } = await supabase.from('solicitudes').select('*').eq('inquilino_id', userId);
+```
+
+---
+
+## Backend Communication
+
+El frontend se comunica con el backend NestJS a través de `src/lib/api.ts`. **NO** accede a datos directamente desde Supabase — Supabase se usa SOLO para Auth state y Storage URLs.
+
+### `src/lib/api.ts` — HTTP Client
+
+```typescript
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+```
+
+- Base URL configurable via `NEXT_PUBLIC_API_URL`
+- JWT almacenado en `localStorage` (key: `saferent_jwt`)
+- Token inyectado automáticamente en header `Authorization: Bearer <jwt>`
+- Métodos: `api.get()`, `api.post()`, `api.patch()`, `api.delete()`
+
+### Flujo de autenticación
+
+1. Usuario inicia sesión via Supabase Auth (client-side)
+2. `AuthContext` llama a `POST /api/v1/auth/exchange` con el token de Supabase
+3. Backend verifica token → devuelve JWT de SafeRent
+4. JWT se almacena con `setBackendToken(token)`
+5. Todas las llamadas subsiguientes via `api.*` incluyen el JWT automáticamente
+
+### Regla crítica
+
+```
+¿Necesitas datos del usuario/viviendas/solicitudes/pagos?
+  → Usa api.get/post/patch desde src/lib/api.ts
+  → NUNCA supabase.from('tabla').select() para datos de negocio
+
+¿Necesitas auth state o escuchar cambios de sesión?
+  → Usa src/lib/supabase/client.ts (onAuthStateChange)
+
+¿Necesitas mostrar una imagen de Storage?
+  → Usa URL de Supabase Storage directamente
 ```
 
 ---

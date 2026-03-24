@@ -68,7 +68,8 @@ Read the linked skill file **before starting** when a task matches these trigger
 |-------|-----------|
 | Framework | Next.js 15 (App Router) + TypeScript |
 | Styling | Tailwind CSS v4 + shadcn/ui (Radix UI) + Magic UI |
-| Backend | Supabase (Postgres + Storage + Auth) |
+| Backend API | NestJS 11 (via src/lib/api.ts) |
+| Auth & Storage | Supabase (Auth state + Storage URLs only) |
 | Payments | Stripe Connect (escrow model) |
 | Contracts | Signaturit (digital signature) + PDF generation |
 | Animations | Framer Motion via `src/components/motion/` |
@@ -83,7 +84,7 @@ Read the linked skill file **before starting** when a task matches these trigger
 **User roles:** `INQUILINO` (tenant) · `PROPIETARIO` (landlord) · `ADMINISTRADOR`
 
 **Core business flow:**
-1. Tenant applies → uploads KYC + temporality docs → `documentos-solicitud` bucket
+1. Tenant applies → uploads KYC + temporality docs → data flows through NestJS backend (files to `documentos-solicitud` bucket)
 2. Landlord accepts/rejects via `/propietario/solicitudes`
 3. Acceptance triggers PDF contract → Signaturit signature flow
 4. Payment via Stripe Connect escrow → released on stay confirmation
@@ -207,6 +208,7 @@ src/lib/solicitudes.ts             — application logic
 src/lib/viviendas.ts               — property logic
 src/lib/contratos.ts               — contract generation
 src/lib/pagos.ts                   — payment logic
+src/lib/api.ts                     — HTTP client to NestJS backend (JWT auto-injection)
 src/lib/supabase/client.ts         — browser Supabase client
 src/lib/supabase/server.ts         — server Supabase client
 src/types/index.ts                 — shared TS types
