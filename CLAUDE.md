@@ -30,6 +30,7 @@ Required in `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 NEXT_PUBLIC_API_URL=              # NestJS backend URL (default: http://localhost:3001)
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=  # Stripe publishable key for Elements
 ```
 
 ## Architecture
@@ -71,6 +72,7 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 - `src/lib/supabase/client.ts` — browser client (Client Components)
 - `src/lib/supabase/server.ts` — server client with cookie management (Server Components / API routes)
 - Data access helpers (call NestJS backend via api.ts): `src/lib/auth.ts`, `src/lib/solicitudes.ts`, `src/lib/viviendas.ts`, `src/lib/contratos.ts`, `src/lib/pagos.ts`
+- Real-time hooks: `src/hooks/useNotifications.ts` — Socket.io hook for WebSocket events (JWT auth, `/notifications` namespace)
 
 **User roles:** `INQUILINO`, `PROPIETARIO`, `ADMINISTRADOR`
 
@@ -78,8 +80,9 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 
 1. Tenant submits application (`solicitudes`) with identity + temporality documents (uploaded to `documentos-solicitud` Supabase storage bucket)
 2. Landlord accepts/rejects via `/propietario/solicitudes`
-3. On acceptance, a PDF contract is auto-generated (`/api/contratos/generar`) and signed digitally via Signaturit
-4. Payment processed via Stripe Connect (escrow model); released on stay confirmation
+3. On acceptance, a PDF contract is auto-generated (`/api/contratos/generar`) and signed digitally via Signaturit (wrapped in `$transaction` — rollback if generation fails)
+4. Payment processed via Stripe PaymentIntent (`/pagos/create-intent`) + Stripe Elements on frontend; webhook confirms payment
+5. Real-time updates via Socket.io WebSocket (`/notifications` namespace) with polling fallback
 
 ### Component Conventions
 

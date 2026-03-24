@@ -86,8 +86,9 @@ Read the linked skill file **before starting** when a task matches these trigger
 **Core business flow:**
 1. Tenant applies → uploads KYC + temporality docs → data flows through NestJS backend (files to `documentos-solicitud` bucket)
 2. Landlord accepts/rejects via `/propietario/solicitudes`
-3. Acceptance triggers PDF contract → Signaturit signature flow
-4. Payment via Stripe Connect escrow → released on stay confirmation
+3. Acceptance triggers PDF contract (in `$transaction` — atomic) → Signaturit signature flow
+4. Payment via Stripe PaymentIntent + Elements → webhook confirms → pago COMPLETADO
+5. Real-time updates via Socket.io WebSocket (`/notifications`) + polling fallback
 
 → Full architecture detail: **CLAUDE.md**
 
@@ -207,10 +208,11 @@ src/lib/auth.ts                    — auth helpers
 src/lib/solicitudes.ts             — application logic
 src/lib/viviendas.ts               — property logic
 src/lib/contratos.ts               — contract generation
-src/lib/pagos.ts                   — payment logic
+src/lib/pagos.ts                   — payment logic + crearPaymentIntent (Stripe)
 src/lib/api.ts                     — HTTP client to NestJS backend (JWT auto-injection)
 src/lib/supabase/client.ts         — browser Supabase client
 src/lib/supabase/server.ts         — server Supabase client
+src/hooks/useNotifications.ts      — Socket.io WebSocket hook (real-time events)
 src/types/index.ts                 — shared TS types
 src/components/motion/             — Framer Motion wrappers
 src/components/layout/             — Sidebar, TopBar

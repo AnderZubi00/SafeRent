@@ -39,8 +39,13 @@ import {
   firmarContrato,
   obtenerContratoBySolicitud,
 } from "@/lib/contratos";
-import { registrarPago } from "@/lib/pagos";
+import { crearPaymentIntent } from "@/lib/pagos";
 import SignatureCanvas from "react-signature-canvas";
+import { loadStripe } from "@stripe/stripe-js";
+import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import { useNotifications } from "@/hooks/useNotifications";
+
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "");
 
 const STEPS = [
   { id: 1, label: "Verificación de identidad", icon: User, desc: "Confirma quién eres" },
@@ -54,6 +59,56 @@ const MOTIVOS = [
   { id: "Trabajo temporal", label: "Trabajo temporal", icon: Briefcase, doc: "Contrato laboral" },
   { id: "Otros", label: "Otros", icon: HelpCircle, doc: "Documento justificativo" },
 ];
+
+function StripeCheckoutForm({ onSuccess }: { onSuccess: () => void }) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [processing, setProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!stripe || !elements) return;
+
+    setProcessing(true);
+    setErrorMsg(null);
+
+    const { error } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: `${window.location.origin}/inquilino/checkout${window.location.search}`,
+      },
+      redirect: "if_required",
+    });
+
+    if (error) {
+      setErrorMsg(error.message ?? "Error al procesar el pago");
+      setProcessing(false);
+    } else {
+      onSuccess();
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <PaymentElement />
+      {errorMsg && (
+        <p className="text-sm text-red-600">{errorMsg}</p>
+      )}
+      <Button
+        type="submit"
+        disabled={!stripe || processing}
+        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm"
+      >
+        {processing ? (
+          <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Procesando...</>
+        ) : (
+          <>Confirmar pago <Lock className="ml-1.5 h-4 w-4" /></>
+        )}
+      </Button>
+    </form>
+  );
+}
 
 export default function CheckoutPage() {
   return (
@@ -105,8 +160,10 @@ function CheckoutContent() {
   // Step 4 - Pago
   const [procesandoPago, setProcesandoPago] = useState(false);
   const [pagoCompletado, setPagoCompletado] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
+  const [cargandoEstado, setCargandoEstado] = useState(!!solicitudIdParam);
 
   // Load vivienda data
   useEffect(() => {
@@ -122,13 +179,59 @@ function CheckoutContent() {
     cargar();
   }, [viviendaId]);
 
-  // If returning with a solicitud ID, check its state
+  // If returning with a solicitud ID, recover full state from backend
   useEffect(() => {
-    if (solicitudIdParam) {
-      setSolicitudId(solicitudIdParam);
-      setEsperandoRespuesta(true);
-      setStep(2);
+    if (!solicitudIdParam) return;
+    setSolicitudId(solicitudIdParam);
+
+    async function recuperarEstado() {
+      setCargandoEstado(true);
+      const result = await obtenerEstadoSolicitud(solicitudIdParam!);
+
+      if (result.error) {
+        setCargandoEstado(false);
+        setStep(2);
+        setEsperandoRespuesta(true);
+        return;
+      }
+
+      setSolicitudEstado(result.estado);
+      if (result.fecha_entrada) setFechaEntrada(result.fecha_entrada);
+      if (result.fecha_salida) setFechaSalida(result.fecha_salida);
+
+      if (result.estado === "RECHAZADA") {
+        setMotivoRechazo(result.motivo_rechazo);
+        setStep(2);
+        setEsperandoRespuesta(false);
+      } else if (result.estado === "PENDIENTE") {
+        setStep(2);
+        setEsperandoRespuesta(true);
+      } else if (result.estado === "ACEPTADA") {
+        const contrato = result.contrato;
+        if (contrato?.firmado_propietario && !contrato?.firmado_inquilino) {
+          setContratoId(contrato.id);
+          setContratoPdfUrl(contrato.pdf_borrador_url);
+          setStep(3);
+          setEsperandoRespuesta(false);
+        } else if (contrato?.firmado_inquilino) {
+          setContratoId(contrato.id);
+          if ((result as any).pagos_completados && (result as any).pagos_completados > 0) {
+            setPagoCompletado(true);
+            setStep(4);
+          } else {
+            setStep(4);
+          }
+          setEsperandoRespuesta(false);
+        } else {
+          setStep(2);
+          setEsperandoRespuesta(true);
+        }
+      }
+
+      setCargandoEstado(false);
     }
+
+    recuperarEstado();
   }, [solicitudIdParam]);
 
   // Poll solicitud status
@@ -160,11 +263,20 @@ function CheckoutContent() {
     }
   }, [solicitudId]);
 
+  useNotifications(
+    {
+      "solicitud:updated": () => { pollStatus(); },
+      "contrato:signed": () => { pollStatus(); },
+      "pago:completed": () => { pollStatus(); },
+    },
+    esperandoRespuesta || (step >= 3 && !pagoCompletado),
+  );
+
   useEffect(() => {
     if (!esperandoRespuesta || !solicitudId) return;
 
     pollStatus();
-    const interval = setInterval(pollStatus, 10000);
+    const interval = setInterval(pollStatus, 30000);
     return () => clearInterval(interval);
   }, [esperandoRespuesta, solicitudId, pollStatus]);
 
@@ -258,37 +370,28 @@ function CheckoutContent() {
     recargar();
   }
 
-  async function handlePagar() {
+  async function handleIniciarPago() {
     if (!vivienda || !solicitudId) return;
-
     setError(null);
     setProcesandoPago(true);
 
-    await new Promise((r) => setTimeout(r, 2000));
+    const total = vivienda.precio_mes + vivienda.fianza_importe + Math.round(vivienda.precio_mes * 0.03 * 100) / 100;
 
-    const base = {
+    const { data, error: err } = await crearPaymentIntent({
       solicitud_id: solicitudId,
       vivienda_id: vivienda.id,
-    };
+      concepto: "reserva_completa",
+      importe: total,
+    });
 
-    const comision = Math.round(vivienda.precio_mes * 0.03 * 100) / 100;
-
-    const [r1, r2, r3] = await Promise.all([
-      registrarPago({ ...base, concepto: "primer_mes", importe: vivienda.precio_mes }),
-      registrarPago({ ...base, concepto: "fianza", importe: vivienda.fianza_importe }),
-      registrarPago({ ...base, concepto: "comision_servicio", importe: comision }),
-    ]);
-
-    const pagoError = r1.error || r2.error || r3.error;
-    if (pagoError) {
-      console.error("Error registrando pagos:", pagoError);
+    if (err || !data) {
+      setError(err ?? "Error al iniciar el pago");
+      setProcesandoPago(false);
+      return;
     }
 
-    // El backend envía el email al propietario automáticamente al registrar el pago
-
+    setClientSecret(data.clientSecret);
     setProcesandoPago(false);
-    setPagoCompletado(true);
-    recargar();
   }
 
   function calcularMeses(): number {
@@ -309,7 +412,7 @@ function CheckoutContent() {
   // Determine effective step for stepper display
   const effectiveStep = esperandoRespuesta ? 2.5 : step;
 
-  if (cargandoVivienda) {
+  if (cargandoVivienda || cargandoEstado) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
@@ -782,43 +885,28 @@ function CheckoutContent() {
                           </div>
                         </div>
 
-                        {/* Mock payment form */}
-                        <div className="space-y-3">
-                          <div className="space-y-1">
-                            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Número de tarjeta</label>
-                            <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2.5">
-                              <CreditCard className="h-4 w-4 text-slate-400" />
-                              <input placeholder="4242 4242 4242 4242" className="text-sm flex-1 outline-none text-slate-900 placeholder:text-slate-400 bg-transparent" />
-                            </div>
+                        {clientSecret ? (
+                          <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+                            <StripeCheckoutForm onSuccess={() => { setPagoCompletado(true); recargar(); }} />
+                          </Elements>
+                        ) : (
+                          <div className="flex gap-3">
+                            <Button variant="outline" onClick={() => setStep(3)} className="flex-1 ring-1 ring-slate-200 border-0">
+                              <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
+                            </Button>
+                            <Button
+                              onClick={handleIniciarPago}
+                              disabled={procesandoPago}
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm"
+                            >
+                              {procesandoPago ? (
+                                <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Preparando pago...</>
+                              ) : (
+                                <>Pagar {(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€ <Lock className="ml-1.5 h-4 w-4" /></>
+                              )}
+                            </Button>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1">
-                              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Vencimiento</label>
-                              <input placeholder="MM / AA" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none bg-transparent" />
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">CVV</label>
-                              <input placeholder="···" className="w-full ring-1 ring-slate-200 rounded-lg px-3 py-2.5 text-sm outline-none bg-transparent" />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                          <Button variant="outline" onClick={() => setStep(3)} className="flex-1 ring-1 ring-slate-200 border-0">
-                            <ArrowLeft className="mr-1 h-4 w-4" /> Atrás
-                          </Button>
-                          <Button
-                            onClick={handlePagar}
-                            disabled={procesandoPago}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm"
-                          >
-                            {procesandoPago ? (
-                              <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Procesando...</>
-                            ) : (
-                              <>Pagar {(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€ <Lock className="ml-1.5 h-4 w-4" /></>
-                            )}
-                          </Button>
-                        </div>
+                        )}
                       </>
                     )}
                   </CardContent>
@@ -862,17 +950,24 @@ function CheckoutContent() {
                 <Separator className="bg-slate-200" />
 
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">{vivienda.precio_mes.toLocaleString("es-ES")}€ × {calcularMeses() || "—"} meses</span>
-                    <span className="font-medium">{calcularMeses() > 0 ? `${(vivienda.precio_mes * calcularMeses()).toLocaleString("es-ES")}€` : "—"}</span>
-                  </div>
+                  {calcularMeses() > 0 ? (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">{vivienda.precio_mes.toLocaleString("es-ES")}€ × {calcularMeses()} meses</span>
+                      <span className="font-medium">{(vivienda.precio_mes * calcularMeses()).toLocaleString("es-ES")}€</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Renta mensual</span>
+                      <span className="font-medium">{vivienda.precio_mes.toLocaleString("es-ES")}€/mes</span>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-slate-600">Fianza</span>
                     <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Comisión (3%)</span>
-                    <span className="font-medium">{calcularMeses() > 0 ? `${(vivienda.precio_mes * calcularMeses() * 0.03).toLocaleString("es-ES")}€` : "—"}</span>
+                    <span className="font-medium">{(vivienda.precio_mes * Math.max(1, calcularMeses()) * 0.03).toLocaleString("es-ES")}€</span>
                   </div>
                 </div>
 
@@ -880,7 +975,7 @@ function CheckoutContent() {
 
                 <div className="flex justify-between font-bold text-slate-900">
                   <span>Total</span>
-                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : "—"}</span>
+                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : `${(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€`}</span>
                 </div>
 
                 <div className="bg-amber-50 ring-1 ring-amber-200 rounded-lg p-2.5 text-center">

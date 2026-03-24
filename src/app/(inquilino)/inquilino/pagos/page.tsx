@@ -4,21 +4,23 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   CreditCard,
   CheckCircle2,
   Clock,
   Shield,
   Loader2,
-  Inbox,
   Search,
-  MapPin,
   Receipt,
   Wallet,
   ArrowRight,
   Home,
   X,
-  ExternalLink,
+  AlertTriangle,
+  ChevronRight,
+  CalendarDays,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInquilino } from "@/context/InquilinoContext";
@@ -97,7 +99,7 @@ function formatCurrency(amount: number) {
   });
 }
 
-function PagoRow({ pago }: { pago: Pago }) {
+function PagoRow({ pago, showAction }: { pago: Pago; showAction?: boolean }) {
   const conceptoInfo = CONCEPTO_LABELS[pago.concepto] ?? {
     label: pago.concepto,
     desc: "",
@@ -148,6 +150,114 @@ function PagoRow({ pago }: { pago: Pago }) {
         <EstadoIcon className="h-3 w-3 mr-1" />
         {estado.label}
       </Badge>
+
+      {showAction && pago.estado === "PENDIENTE" && (
+        <Link href={`/inquilino/checkout?vivienda=${pago.vivienda_id}&solicitud=${pago.solicitud_id}`}>
+          <Button size="sm" className="h-7 text-xs bg-indigo-600 hover:bg-indigo-500 text-white gap-1 shadow-sm shrink-0">
+            Pagar <ChevronRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      )}
+
+      {showAction && pago.estado === "FALLIDO" && (
+        <Link href={`/inquilino/checkout?vivienda=${pago.vivienda_id}&solicitud=${pago.solicitud_id}`}>
+          <Button size="sm" variant="outline" className="h-7 text-xs ring-1 ring-rose-200 text-rose-700 border-0 gap-1 shrink-0">
+            Reintentar <ChevronRight className="h-3 w-3" />
+          </Button>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function PagosGroupedByVivienda({ pagos, showAction }: { pagos: Pago[]; showAction?: boolean }) {
+  const pagosPorVivienda = pagos.reduce<Record<string, Pago[]>>((acc, p) => {
+    const key = p.vivienda?.titulo ?? p.vivienda_id;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(pagosPorVivienda).map(([vivienda, pagosGrupo]) => {
+        const subtotal = pagosGrupo.reduce((s, p) => s + Number(p.importe), 0);
+        return (
+          <Card key={vivienda} className="ring-1 ring-slate-200 shadow-sm border-0">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-lg bg-indigo-50 ring-1 ring-indigo-200 flex items-center justify-center">
+                    <Home className="h-3.5 w-3.5 text-indigo-600" />
+                  </div>
+                  <CardTitle className="text-sm font-semibold text-slate-900">
+                    {vivienda}
+                  </CardTitle>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">
+                  Subtotal: <span className="text-slate-900">{formatCurrency(subtotal)}€</span>
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {pagosGrupo.map((pago) => (
+                <PagoRow key={pago.id} pago={pago} showAction={showAction} />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+function EmptyState({ type }: { type: "all" | "pendientes" | "completados" | "fallidos" }) {
+  const config = {
+    all: {
+      icon: Wallet,
+      title: "Sin pagos registrados",
+      desc: "Cuando completes una reserva y realices el pago, aparecerá aquí tu historial completo.",
+      showSearch: true,
+    },
+    pendientes: {
+      icon: Clock,
+      title: "Sin pagos pendientes",
+      desc: "No tenés pagos pendientes de completar.",
+      showSearch: false,
+    },
+    completados: {
+      icon: CheckCircle2,
+      title: "Sin pagos completados",
+      desc: "Aún no se ha registrado ningún pago completado.",
+      showSearch: false,
+    },
+    fallidos: {
+      icon: AlertTriangle,
+      title: "Sin pagos fallidos",
+      desc: "No hay pagos con errores.",
+      showSearch: false,
+    },
+  };
+
+  const c = config[type];
+  const Icon = c.icon;
+
+  return (
+    <div className="text-center py-16 space-y-4">
+      <div className="h-14 w-14 rounded-full bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center mx-auto">
+        <Icon className="h-7 w-7 text-slate-300" />
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold text-slate-900">{c.title}</h3>
+        <p className="text-xs text-slate-500 mt-1">{c.desc}</p>
+      </div>
+      {c.showSearch && (
+        <Link href="/buscar">
+          <Button className="bg-indigo-600 hover:bg-indigo-500 text-white gap-1.5 shadow-sm">
+            <Search className="h-4 w-4" /> Buscar alojamiento
+          </Button>
+        </Link>
+      )}
     </div>
   );
 }
@@ -155,20 +265,26 @@ function PagoRow({ pago }: { pago: Pago }) {
 export default function PagosPage() {
   const { pagos, solicitudes, cargando } = useInquilino();
 
-  const totalPagado = pagos
-    .filter((p) => p.estado === "COMPLETADO")
+  const completados = pagos.filter((p) => p.estado === "COMPLETADO");
+  const pendientes = pagos.filter((p) => p.estado === "PENDIENTE");
+  const fallidos = pagos.filter((p) => p.estado === "FALLIDO");
+
+  const totalPagado = completados.reduce((s, p) => s + Number(p.importe), 0);
+  const totalPendiente = pendientes.reduce((s, p) => s + Number(p.importe), 0);
+
+  const totalFianzas = completados
+    .filter((p) => p.concepto === "fianza")
     .reduce((s, p) => s + Number(p.importe), 0);
 
-  const totalFianzas = pagos
-    .filter((p) => p.concepto === "fianza" && p.estado === "COMPLETADO")
-    .reduce((s, p) => s + Number(p.importe), 0);
-
-  const proximoPago = solicitudes.find(
+  // "Próximo pago": solicitud aceptada con ambas firmas y sin pago completado
+  const solicitudesSinPago = solicitudes.filter(
     (s) =>
       s.estado === "ACEPTADA" &&
       s.contrato?.firmado_inquilino &&
-      s.contrato?.firmado_propietario
+      s.contrato?.firmado_propietario &&
+      !pagos.some((p) => p.solicitud_id === s.id && p.estado === "COMPLETADO")
   );
+  const proximoPago = solicitudesSinPago[0];
   const proximoPagoImporte = proximoPago?.vivienda?.precio_mes ?? 0;
 
   if (cargando) {
@@ -179,7 +295,7 @@ export default function PagosPage() {
     );
   }
 
-  if (pagos.length === 0) {
+  if (pagos.length === 0 && solicitudesSinPago.length === 0) {
     return (
       <div className="p-6 lg:p-8 max-w-4xl mx-auto">
         <div>
@@ -188,34 +304,10 @@ export default function PagosPage() {
             Historial y estado de tus pagos
           </p>
         </div>
-        <div className="text-center py-20 space-y-4">
-          <div className="h-16 w-16 rounded-full bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center mx-auto">
-            <Wallet className="h-8 w-8 text-slate-300" />
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">
-              Sin pagos registrados
-            </h3>
-            <p className="text-sm text-slate-500 mt-1">
-              Cuando completes una reserva y realices el pago, aparecerá aquí tu historial completo.
-            </p>
-          </div>
-          <Link href="/buscar">
-            <Button className="bg-indigo-600 hover:bg-indigo-500 text-white gap-1.5 shadow-sm">
-              <Search className="h-4 w-4" /> Buscar alojamiento
-            </Button>
-          </Link>
-        </div>
+        <EmptyState type="all" />
       </div>
     );
   }
-
-  const pagosPorVivienda = pagos.reduce<Record<string, Pago[]>>((acc, p) => {
-    const key = p.vivienda?.titulo ?? p.vivienda_id;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(p);
-    return acc;
-  }, {});
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl mx-auto space-y-6">
@@ -252,13 +344,21 @@ export default function PagosPage() {
         <Card className="ring-1 ring-slate-200 shadow-sm border-0">
           <CardContent className="p-5 flex items-center gap-4">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-amber-500/10">
-              <Shield className="h-5 w-5 text-amber-600" />
+              {totalPendiente > 0 ? (
+                <Clock className="h-5 w-5 text-amber-600" />
+              ) : (
+                <Shield className="h-5 w-5 text-amber-600" />
+              )}
             </div>
             <div>
               <p className="text-2xl font-bold text-slate-900">
-                {formatCurrency(totalFianzas)}€
+                {totalPendiente > 0
+                  ? `${formatCurrency(totalPendiente)}€`
+                  : `${formatCurrency(totalFianzas)}€`}
               </p>
-              <p className="text-xs text-slate-500">Fianzas retenidas</p>
+              <p className="text-xs text-slate-500">
+                {totalPendiente > 0 ? "Pendiente de pago" : "Fianzas retenidas"}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -280,51 +380,146 @@ export default function PagosPage() {
         </Card>
       </div>
 
-      {/* Payments grouped by property */}
-      <div className="space-y-6">
-        {Object.entries(pagosPorVivienda).map(([vivienda, pagosGrupo]) => {
-          const subtotal = pagosGrupo.reduce(
-            (s, p) => s + Number(p.importe),
-            0
-          );
-          return (
-            <Card key={vivienda} className="ring-1 ring-slate-200 shadow-sm border-0">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-indigo-50 ring-1 ring-indigo-200 flex items-center justify-center">
-                      <Home className="h-3.5 w-3.5 text-indigo-600" />
-                    </div>
-                    <CardTitle className="text-sm font-semibold text-slate-900">
-                      {vivienda}
-                    </CardTitle>
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500">
-                    Subtotal: <span className="text-slate-900">{formatCurrency(subtotal)}€</span>
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {pagosGrupo.map((pago) => (
-                  <PagoRow key={pago.id} pago={pago} />
-                ))}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {/* Alerta de pagos pendientes */}
+      {(pendientes.length > 0 || solicitudesSinPago.length > 0) && (
+        <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-900">
+              {pendientes.length > 0
+                ? `Tenés ${pendientes.length} pago${pendientes.length > 1 ? "s" : ""} pendiente${pendientes.length > 1 ? "s" : ""}`
+                : `Tenés ${solicitudesSinPago.length} reserva${solicitudesSinPago.length > 1 ? "s" : ""} esperando pago`}
+            </p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Completá el pago para finalizar tu reserva.
+            </p>
+          </div>
+          {solicitudesSinPago.length > 0 && pendientes.length === 0 && (
+            <Link href={`/inquilino/checkout?vivienda=${proximoPago.vivienda_id}&solicitud=${proximoPago.id}`}>
+              <Button size="sm" className="h-7 text-xs bg-amber-600 hover:bg-amber-500 text-white gap-1 shadow-sm">
+                Ir a pagar <ChevronRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Alerta de pagos fallidos */}
+      {fallidos.length > 0 && (
+        <div className="bg-rose-50 ring-1 ring-rose-200 rounded-xl p-4 flex items-start gap-3">
+          <X className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-rose-900">
+              {fallidos.length} pago{fallidos.length > 1 ? "s" : ""} fallido{fallidos.length > 1 ? "s" : ""}
+            </p>
+            <p className="text-xs text-rose-700 mt-0.5">
+              Revisá el método de pago e intentá nuevamente.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Tabs */}
+      <Tabs defaultValue={pendientes.length > 0 ? "pendientes" : "todos"}>
+        <TabsList className="bg-slate-100 ring-1 ring-slate-200">
+          <TabsTrigger value="todos" className="text-xs gap-1.5">
+            <TrendingUp className="h-3.5 w-3.5" />
+            Todos
+            <span className="ml-1 bg-slate-200 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+              {pagos.length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="pendientes" className="text-xs gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Pendientes
+            {pendientes.length > 0 && (
+              <span className="ml-1 bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {pendientes.length}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="completados" className="text-xs gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Completados
+            {completados.length > 0 && (
+              <span className="ml-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {completados.length}
+              </span>
+            )}
+          </TabsTrigger>
+          {fallidos.length > 0 && (
+            <TabsTrigger value="fallidos" className="text-xs gap-1.5">
+              <X className="h-3.5 w-3.5" />
+              Fallidos
+              <span className="ml-1 bg-rose-100 text-rose-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                {fallidos.length}
+              </span>
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="todos" className="mt-4">
+          {pagos.length > 0 ? (
+            <PagosGroupedByVivienda pagos={pagos} showAction />
+          ) : (
+            <EmptyState type="all" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="pendientes" className="mt-4">
+          {pendientes.length > 0 ? (
+            <PagosGroupedByVivienda pagos={pendientes} showAction />
+          ) : (
+            <EmptyState type="pendientes" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="completados" className="mt-4">
+          {completados.length > 0 ? (
+            <PagosGroupedByVivienda pagos={completados} />
+          ) : (
+            <EmptyState type="completados" />
+          )}
+        </TabsContent>
+
+        <TabsContent value="fallidos" className="mt-4">
+          {fallidos.length > 0 ? (
+            <PagosGroupedByVivienda pagos={fallidos} showAction />
+          ) : (
+            <EmptyState type="fallidos" />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Footer summary */}
       <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-4 flex items-center justify-between">
-        <div className="flex items-center gap-4 text-xs text-slate-500">
+        <div className="flex items-center gap-4 text-xs text-slate-500 flex-wrap">
           <span>
             <strong className="text-slate-900">{pagos.length}</strong> pago{pagos.length !== 1 ? "s" : ""} registrado{pagos.length !== 1 ? "s" : ""}
           </span>
           <span className="text-slate-300">|</span>
           <span className="flex items-center gap-1">
             <div className="h-2 w-2 rounded-full bg-emerald-500" />
-            {pagos.filter((p) => p.estado === "COMPLETADO").length} completado{pagos.filter((p) => p.estado === "COMPLETADO").length !== 1 ? "s" : ""}
+            {completados.length} completado{completados.length !== 1 ? "s" : ""}
           </span>
+          {pendientes.length > 0 && (
+            <>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                {pendientes.length} pendiente{pendientes.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          )}
+          {fallidos.length > 0 && (
+            <>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-rose-500" />
+                {fallidos.length} fallido{fallidos.length !== 1 ? "s" : ""}
+              </span>
+            </>
+          )}
         </div>
         <div className="text-right">
           <p className="text-xs text-slate-400">Total acumulado</p>

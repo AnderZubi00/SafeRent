@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useInquilino, type SolicitudConContrato } from "@/context/InquilinoContext";
+import type { Pago } from "@/lib/pagos";
 
 const PASO_LABELS = ["Identidad", "Temporalidad", "Contrato", "Pago"];
 
@@ -90,28 +91,31 @@ function getCheckoutUrl(sol: SolicitudConContrato) {
   return `/inquilino/checkout?vivienda=${sol.vivienda_id}&solicitud=${sol.id}`;
 }
 
-function calcularPasos(sol: SolicitudConContrato) {
+function calcularPasos(sol: SolicitudConContrato, pagos: Pago[]) {
   const c = sol.contrato;
   const inquilinoFirmo = c?.firmado_inquilino ?? false;
   const propietarioFirmo = c?.firmado_propietario ?? false;
   const ambosFirmaron = inquilinoFirmo && propietarioFirmo;
+  const tienePagos = pagos.some((p) => p.solicitud_id === sol.id && p.estado === "COMPLETADO");
 
   return [
     { done: true, current: false },
     { done: true, current: sol.estado === "PENDIENTE" },
     { done: inquilinoFirmo, current: sol.estado === "ACEPTADA" && propietarioFirmo && !inquilinoFirmo },
-    { done: ambosFirmaron, current: inquilinoFirmo && !ambosFirmaron },
+    { done: tienePagos, current: ambosFirmaron && !tienePagos },
   ];
 }
 
-function SolicitudCard({ sol }: { sol: SolicitudConContrato }) {
+function SolicitudCard({ sol, pagos }: { sol: SolicitudConContrato; pagos: Pago[] }) {
   const estado = getEstadoInfo(sol);
   const EstadoIcon = estado.icon;
-  const pasos = sol.estado !== "RECHAZADA" ? calcularPasos(sol) : null;
+  const pasos = sol.estado !== "RECHAZADA" ? calcularPasos(sol, pagos) : null;
   const pasosCompletados = pasos ? pasos.filter((p) => p.done).length : 0;
   const progreso = pasos ? Math.round((pasosCompletados / pasos.length) * 100) : 0;
   const meses = calcularMeses(sol.fecha_entrada, sol.fecha_salida);
-  const enProceso = sol.estado === "PENDIENTE" || (sol.estado === "ACEPTADA" && !(sol.contrato?.firmado_inquilino && sol.contrato?.firmado_propietario));
+  const ambosFirmaron = sol.contrato?.firmado_inquilino && sol.contrato?.firmado_propietario;
+  const tienePagos = pagos.some((p) => p.solicitud_id === sol.id && p.estado === "COMPLETADO");
+  const enProceso = sol.estado === "PENDIENTE" || (sol.estado === "ACEPTADA" && (!ambosFirmaron || !tienePagos));
 
   return (
     <Card className="ring-1 ring-slate-200 shadow-sm border-0 hover:shadow-md transition-shadow overflow-hidden">
@@ -249,13 +253,18 @@ function SolicitudCard({ sol }: { sol: SolicitudConContrato }) {
 }
 
 export default function ReservasPage() {
-  const { solicitudes, cargando } = useInquilino();
+  const { solicitudes, pagos, cargando } = useInquilino();
 
   const activas = solicitudes.filter(
     (s) => s.estado === "PENDIENTE" || s.estado === "ACEPTADA"
   );
   const finalizadas = solicitudes.filter(
-    (s) => s.estado === "RECHAZADA" || (s.estado === "ACEPTADA" && s.contrato?.firmado_inquilino && s.contrato?.firmado_propietario)
+    (s) =>
+      s.estado === "RECHAZADA" ||
+      (s.estado === "ACEPTADA" &&
+        s.contrato?.firmado_inquilino &&
+        s.contrato?.firmado_propietario &&
+        pagos.some((p) => p.solicitud_id === s.id && p.estado === "COMPLETADO"))
   );
 
   if (cargando) {
@@ -306,7 +315,7 @@ export default function ReservasPage() {
 
         <TabsContent value="activas" className="mt-4 space-y-4">
           {activas.length > 0 ? (
-            activas.map((sol) => <SolicitudCard key={sol.id} sol={sol} />)
+            activas.map((sol) => <SolicitudCard key={sol.id} sol={sol} pagos={pagos} />)
           ) : (
             <div className="text-center py-16 space-y-4">
               <div className="h-16 w-16 rounded-full bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center mx-auto">
@@ -331,7 +340,7 @@ export default function ReservasPage() {
 
         <TabsContent value="finalizadas" className="mt-4 space-y-4">
           {finalizadas.length > 0 ? (
-            finalizadas.map((sol) => <SolicitudCard key={sol.id} sol={sol} />)
+            finalizadas.map((sol) => <SolicitudCard key={sol.id} sol={sol} pagos={pagos} />)
           ) : (
             <div className="text-center py-16 space-y-3">
               <div className="h-14 w-14 rounded-full bg-slate-100 ring-1 ring-slate-200 flex items-center justify-center mx-auto">

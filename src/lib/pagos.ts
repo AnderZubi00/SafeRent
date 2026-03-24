@@ -71,3 +71,18 @@ export async function obtenerPagosPropietario(): Promise<{
     return { data: [], error: e instanceof Error ? e.message : "Error" };
   }
 }
+
+export async function crearPaymentIntent(input: RegistrarPagoInput): Promise<{
+  data: { clientSecret: string; pagoId: string } | null;
+  error: string | null;
+}> {
+  try {
+    const data = await api.post<{ clientSecret: string; pagoId: string }>(
+      "/pagos/create-intent",
+      input
+    );
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error al crear el pago" };
+  }
+}

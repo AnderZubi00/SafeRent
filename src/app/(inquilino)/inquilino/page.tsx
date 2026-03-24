@@ -57,7 +57,7 @@ function getEstadoBadge(sol: SolicitudConContrato) {
 
 export default function InquilinoInicio() {
   const { usuario } = useAuth();
-  const { solicitudes, cargando } = useInquilino();
+  const { solicitudes, pagos, cargando } = useInquilino();
 
   const nombre = usuario?.nombre_completo?.split(" ")[0] ?? "inquilino";
 
@@ -91,6 +91,7 @@ export default function InquilinoInicio() {
     const inquilinoFirmo = contrato?.firmado_inquilino ?? false;
     const propietarioFirmo = contrato?.firmado_propietario ?? false;
     const ambosFirmaron = inquilinoFirmo && propietarioFirmo;
+    const tienePagos = pagos.some((p) => p.solicitud_id === sa.id && p.estado === "COMPLETADO");
 
     return [
       { label: "Identidad", done: true, current: false },
@@ -100,7 +101,7 @@ export default function InquilinoInicio() {
         done: inquilinoFirmo,
         current: sa.estado === "ACEPTADA" && propietarioFirmo && !inquilinoFirmo,
       },
-      { label: "Pago", done: ambosFirmaron, current: inquilinoFirmo && !ambosFirmaron },
+      { label: "Pago", done: tienePagos, current: ambosFirmaron && !tienePagos },
     ];
   }
 

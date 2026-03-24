@@ -60,7 +60,7 @@ export async function crearSolicitud(
   try {
     // 1. Obtener URLs firmadas para subir documentos
     // Usamos un ID temporal para organizar las rutas
-    const tempId = crypto.randomUUID();
+    const tempId = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const uploadUrls = await api.post<{
       identidad: { signedUrl: string; publicUrl: string };
       justificativo: { signedUrl: string; publicUrl: string };
@@ -138,6 +138,9 @@ export async function obtenerEstadoSolicitud(solicitudId: string): Promise<{
     firmado_inquilino: boolean;
     pdf_borrador_url: string | null;
   } | null;
+  pagos_completados?: number;
+  fecha_entrada?: string;
+  fecha_salida?: string;
   error: string | null;
 }> {
   try {
@@ -150,6 +153,9 @@ export async function obtenerEstadoSolicitud(solicitudId: string): Promise<{
         firmado_inquilino: boolean;
         pdf_borrador_url: string | null;
       } | null;
+      pagos_completados?: number;
+      fecha_entrada?: string;
+      fecha_salida?: string;
     }>(`/solicitudes/${solicitudId}/estado`);
 
     return { ...data, error: null };
