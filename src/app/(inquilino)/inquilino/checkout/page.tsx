@@ -128,6 +128,8 @@ function CheckoutContent() {
   const { recargar } = useInquilino();
   const viviendaId = searchParams.get("vivienda") ?? "";
   const solicitudIdParam = searchParams.get("solicitud");
+  const entradaParam = searchParams.get("entrada") ?? "";
+  const salidaParam = searchParams.get("salida") ?? "";
 
   const [step, setStep] = useState(1);
   const [vivienda, setVivienda] = useState<Vivienda | null>(null);
@@ -140,8 +142,8 @@ function CheckoutContent() {
   const [motivo, setMotivo] = useState<string | null>(null);
   const [motivoDetalle, setMotivoDetalle] = useState("");
   const [docJustificativo, setDocJustificativo] = useState<File | null>(null);
-  const [fechaEntrada, setFechaEntrada] = useState("");
-  const [fechaSalida, setFechaSalida] = useState("");
+  const [fechaEntrada, setFechaEntrada] = useState(entradaParam);
+  const [fechaSalida, setFechaSalida] = useState(salidaParam);
 
   // Solicitud state
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false);

@@ -133,7 +133,7 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
           <p className="text-xs text-amber-700 mt-1">Tu pago queda protegido hasta confirmar la estancia.</p>
         </div>
 
-        <BotonReservar viviendaId={viviendaId} />
+        <BotonReservar viviendaId={viviendaId} fechaEntrada={entrada} fechaSalida={salida} />
 
         <div className="flex items-center gap-4 text-xs text-slate-500 justify-center">
           <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Contrato digital</span>

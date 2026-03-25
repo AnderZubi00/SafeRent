@@ -8,12 +8,21 @@ import { ArrowRight, AlertCircle } from "lucide-react";
 
 interface BotonReservarProps {
   viviendaId: string;
+  fechaEntrada?: string;
+  fechaSalida?: string;
 }
 
-export function BotonReservar({ viviendaId }: BotonReservarProps) {
+export function BotonReservar({ viviendaId, fechaEntrada, fechaSalida }: BotonReservarProps) {
   const router = useRouter();
   const { usuario, cargando } = useAuth();
   const [error, setError] = useState<string | null>(null);
+
+  function buildCheckoutUrl() {
+    const params = new URLSearchParams({ vivienda: viviendaId });
+    if (fechaEntrada) params.set("entrada", fechaEntrada);
+    if (fechaSalida) params.set("salida", fechaSalida);
+    return `/inquilino/checkout?${params.toString()}`;
+  }
 
   function handleReservar() {
     setError(null);
@@ -21,7 +30,7 @@ export function BotonReservar({ viviendaId }: BotonReservarProps) {
     if (cargando) return;
 
     if (!usuario) {
-      const redirectUrl = `/inquilino/checkout?vivienda=${viviendaId}`;
+      const redirectUrl = buildCheckoutUrl();
       router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
       return;
     }
@@ -31,7 +40,7 @@ export function BotonReservar({ viviendaId }: BotonReservarProps) {
       return;
     }
 
-    router.push(`/inquilino/checkout?vivienda=${viviendaId}`);
+    router.push(buildCheckoutUrl());
   }
 
   return (
