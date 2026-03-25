@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,12 +37,15 @@ const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
 const TODAS_PROVINCIAS = getAllProvincias();
 
 export default function BuscarPage() {
+  const searchParams = useSearchParams();
+  const ciudadParam = searchParams.get("ciudad") ?? "";
+
   const [viviendas, setViviendas] = useState<Vivienda[]>([]);
   const [cargando, setCargando] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Filtros en estado local
-  const [busqueda, setBusqueda] = useState("");
+  // Filtros en estado local — pre-fill busqueda from URL param
+  const [busqueda, setBusqueda] = useState(ciudadParam);
   const [provinciaFiltro, setProvinciaFiltro] = useState("todas");
   const [ciudadFiltro, setCiudadFiltro] = useState("todas");
   const ciudadesDisponibles = provinciaFiltro !== "todas" ? getCiudadesByProvincia(provinciaFiltro) : [];

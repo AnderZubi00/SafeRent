@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +15,10 @@ import {
 import {
   Search, Shield, FileText, MapPin, Star,
   CheckCircle2, Building2, Users, ArrowRight,
-  Lock, ChevronRight, Wifi, Calendar,
+  Lock, ChevronRight, Wifi,
 } from "lucide-react";
 import { obtenerViviendas, type Vivienda } from "@/lib/viviendas";
+import { getAllProvincias, getCiudadesByProvincia } from "@/data/spain-locations";
 import { AnimatedShinyText } from "@/components/magicui/animated-shiny-text";
 import { TextAnimate } from "@/components/magicui/text-animate";
 import { Particles } from "@/components/magicui/particles";
@@ -34,20 +35,57 @@ const COWORK_IMG = "https://images.unsplash.com/photo-1758873271949-742d6648b6b0
 
 export default function LandingPage() {
   const router = useRouter();
-  const [searchCity, setSearchCity] = useState("");
-  const [searchMotivo, setSearchMotivo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [viviendas, setViviendas] = useState<Vivienda[]>([]);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     obtenerViviendas().then(({ data }) => setViviendas(data.slice(0, 3)));
   }, []);
 
+  // Build flat list of all searchable locations (provinces + cities)
+  const allLocations = useMemo(() => {
+    const locations: { label: string; type: "provincia" | "ciudad"; provincia?: string }[] = [];
+    for (const p of getAllProvincias()) {
+      locations.push({ label: p.name, type: "provincia" });
+      for (const c of getCiudadesByProvincia(p.code)) {
+        locations.push({ label: c, type: "ciudad", provincia: p.name });
+      }
+    }
+    return locations;
+  }, []);
+
+  const suggestions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return allLocations
+      .filter((loc) => loc.label.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [searchQuery, allLocations]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleSearch = () => {
+    setShowSuggestions(false);
     const params = new URLSearchParams();
-    if (searchCity) params.set("ciudad", searchCity);
-    if (searchMotivo) params.set("motivo", searchMotivo);
+    if (searchQuery.trim()) params.set("ciudad", searchQuery.trim());
     router.push(`/buscar?${params.toString()}`);
   };
+
+  function selectSuggestion(label: string) {
+    setSearchQuery(label);
+    setShowSuggestions(false);
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -95,7 +133,8 @@ export default function LandingPage() {
               {/* Search Box */}
               <MotionFadeInUp delay={0.15}>
                 <div
-                  className="mt-10 bg-white/97 backdrop-blur-xl rounded-2xl p-2 max-w-4xl mx-auto"
+                  ref={searchRef}
+                  className="mt-10 bg-white/97 backdrop-blur-xl rounded-2xl p-2 max-w-4xl mx-auto relative"
                   style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.15), 0 2px 12px rgba(0,0,0,0.1)" }}
                 >
                   <div className="flex flex-col sm:flex-row gap-0">
@@ -103,26 +142,13 @@ export default function LandingPage() {
                       <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="¿Dónde? Donostia, Bilbao, Vitoria..."
-                        value={searchCity}
-                        onChange={e => setSearchCity(e.target.value)}
+                        placeholder="¿Dónde? Donostia, Bilbao, Madrid..."
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setShowSuggestions(true); }}
+                        onFocus={() => searchQuery.trim().length >= 2 && setShowSuggestions(true)}
                         className="w-full pl-10 pr-4 py-3.5 text-sm text-slate-900 bg-transparent border-0 outline-none placeholder:text-slate-400"
                         onKeyDown={e => e.key === "Enter" && handleSearch()}
                       />
-                    </div>
-                    <div className="hidden sm:block w-px bg-slate-200/60 my-2.5" />
-                    <div className="relative flex-1">
-                      <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <select
-                        value={searchMotivo}
-                        onChange={e => setSearchMotivo(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3.5 text-sm text-slate-700 bg-transparent border-0 outline-none appearance-none cursor-pointer"
-                      >
-                        <option value="">Motivo de estancia</option>
-                        <option value="Estudios">Estudios</option>
-                        <option value="Trabajo temporal">Trabajo temporal</option>
-                        <option value="Otros">Otros</option>
-                      </select>
                     </div>
                     <ShimmerButton
                       onClick={handleSearch}
@@ -138,6 +164,38 @@ export default function LandingPage() {
                       </span>
                     </ShimmerButton>
                   </div>
+
+                  {/* Autocomplete dropdown */}
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg ring-1 ring-slate-200 overflow-hidden z-50">
+                      {suggestions.map((s, i) => {
+                        const q = searchQuery.trim().toLowerCase();
+                        const idx = s.label.toLowerCase().indexOf(q);
+                        const before = s.label.slice(0, idx);
+                        const match = s.label.slice(idx, idx + q.length);
+                        const after = s.label.slice(idx + q.length);
+                        return (
+                          <button
+                            key={`${s.label}-${i}`}
+                            type="button"
+                            onClick={() => selectSuggestion(s.label)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-700 hover:bg-indigo-50 transition-colors text-left"
+                          >
+                            <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+                            <span>
+                              {before}<strong className="text-slate-900">{match}</strong>{after}
+                              {s.type === "ciudad" && s.provincia && (
+                                <span className="text-slate-400 ml-1.5 text-xs">{s.provincia}</span>
+                              )}
+                              {s.type === "provincia" && (
+                                <span className="text-indigo-500 ml-1.5 text-xs">Provincia</span>
+                              )}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </MotionFadeInUp>
 
