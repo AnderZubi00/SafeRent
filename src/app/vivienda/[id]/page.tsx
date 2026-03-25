@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
+import { Separator } from "@/components/ui/separator";
 import { CardReserva } from "@/components/reserva/CardReserva";
 import type { Vivienda } from "@/lib/viviendas";
 import {
