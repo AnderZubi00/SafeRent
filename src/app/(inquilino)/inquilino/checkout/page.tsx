@@ -950,17 +950,13 @@ function CheckoutContent() {
                 <Separator className="bg-slate-200" />
 
                 <div className="space-y-2 text-sm">
-                  {calcularMeses() > 0 ? (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">{vivienda.precio_mes.toLocaleString("es-ES")}€ × {calcularMeses()} meses</span>
-                      <span className="font-medium">{(vivienda.precio_mes * calcularMeses()).toLocaleString("es-ES")}€</span>
-                    </div>
-                  ) : (
-                    <div className="flex justify-between">
-                      <span className="text-slate-600">Renta mensual</span>
-                      <span className="font-medium">{vivienda.precio_mes.toLocaleString("es-ES")}€/mes</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">
+                      {vivienda.precio_mes.toLocaleString("es-ES")}€ × {Math.max(1, calcularMeses())} {Math.max(1, calcularMeses()) === 1 ? "mes" : "meses"}
+                      {calcularMeses() === 0 && <span className="text-slate-400 text-xs ml-1">(estimado)</span>}
+                    </span>
+                    <span className="font-medium">{(vivienda.precio_mes * Math.max(1, calcularMeses())).toLocaleString("es-ES")}€</span>
+                  </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Fianza</span>
                     <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
@@ -975,7 +971,7 @@ function CheckoutContent() {
 
                 <div className="flex justify-between font-bold text-slate-900">
                   <span>Total</span>
-                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : `${(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€`}</span>
+                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : `${(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES", { maximumFractionDigits: 2 })}€`}</span>
                 </div>
 
                 <div className="bg-amber-50 ring-1 ring-amber-200 rounded-lg p-2.5 text-center">
