@@ -1,13 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { BotonReservar } from "@/components/reserva/BotonReservar";
+import { CardReserva } from "@/components/reserva/CardReserva";
 import type { Vivienda } from "@/lib/viviendas";
 import {
   Shield, MapPin, Star, BedDouble, Bath, Maximize2,
-  CheckCircle2, FileText, CreditCard, ChevronLeft, Calendar,
+  CheckCircle2, FileText, ChevronLeft, Calendar,
   Building2, Home,
 } from "lucide-react";
 
@@ -51,8 +49,6 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
     : null;
 
   const gradientColor = getColor(vivienda.id);
-  const comision = vivienda.precio_mes * 0.09;
-  const totalEstimado = vivienda.precio_mes * 3 + vivienda.fianza_importe + comision;
 
   return (
     <div className="min-h-screen bg-white">
@@ -245,68 +241,13 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
 
           {/* Card de reserva (sticky) */}
           <div className="lg:col-span-1">
-            <Card className="ring-1 ring-slate-200 shadow-sm border-0 sticky top-24">
-              <CardHeader className="pb-4">
-                <div className="flex items-baseline justify-between">
-                  <CardTitle className="text-2xl">
-                    {vivienda.precio_mes}€ <span className="text-base font-normal text-slate-500">/mes</span>
-                  </CardTitle>
-                </div>
-                <p className="text-sm text-slate-500">+ {vivienda.fianza_importe}€ de fianza</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Entrada</label>
-                    <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      <input type="date" className="text-sm outline-none flex-1 bg-transparent" />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Salida</label>
-                    <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2">
-                      <Calendar className="h-4 w-4 text-slate-400" />
-                      <input type="date" className="text-sm outline-none flex-1 bg-transparent" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2 py-3 border-t border-b border-slate-200">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">{vivienda.precio_mes}€ × 3 meses</span>
-                    <span className="font-medium text-slate-900">{(vivienda.precio_mes * 3).toLocaleString("es-ES")}€</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Fianza (reembolsable)</span>
-                    <span className="font-medium text-slate-900">{vivienda.fianza_importe}€</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">Comisión plataforma (9%)</span>
-                    <span className="font-medium text-slate-900">{comision.toLocaleString("es-ES", { maximumFractionDigits: 2 })}€</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between font-bold text-slate-900">
-                  <span>Total estimado</span>
-                  <span>{totalEstimado.toLocaleString("es-ES", { maximumFractionDigits: 2 })}€</span>
-                </div>
-
-                <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl p-3">
-                  <p className="text-xs font-semibold text-amber-800 flex items-center gap-1.5">
-                    <Shield className="h-3.5 w-3.5" /> Pago retenido en Escrow
-                  </p>
-                  <p className="text-xs text-amber-700 mt-1">Tu pago queda protegido hasta confirmar la estancia.</p>
-                </div>
-
-                <BotonReservar viviendaId={id} />
-
-                <div className="flex items-center gap-4 text-xs text-slate-500 justify-center">
-                  <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Contrato digital</span>
-                  <span className="flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Stripe seguro</span>
-                </div>
-              </CardContent>
-            </Card>
+            <CardReserva
+              viviendaId={id}
+              precioMes={vivienda.precio_mes}
+              fianzaImporte={vivienda.fianza_importe}
+              estanciaMinima={vivienda.estancia_minima}
+              estanciaMaxima={vivienda.estancia_maxima}
+            />
           </div>
         </div>
       </div>
