@@ -156,7 +156,7 @@ function LoginContent() {
           <h1 className="text-4xl font-bold text-white leading-tight">
             El alquiler de
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-indigo-300">
-              confianza en Euskadi
+              confianza
             </span>
           </h1>
           <p className="text-slate-400 text-lg leading-relaxed max-w-sm">
@@ -467,7 +467,7 @@ function LoginContent() {
           </Card>
 
           <p className="text-center text-xs text-slate-600">
-            SafeRent © 2026 · Plataforma de alquiler seguro en Euskadi
+            SafeRent © 2026 · Plataforma de alquiler seguro
           </p>
         </div>
       </div>

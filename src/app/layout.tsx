@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SafeRent — Alquiler temporal seguro en Euskadi",
-  description: "Plataforma de alquiler temporal con contratos digitales, verificación de identidad y pagos en escrow. Conectamos propietarios e inquilinos en Euskadi.",
+  title: "SafeRent — Alquiler temporal seguro",
+  description: "Plataforma de alquiler temporal con contratos digitales, verificación de identidad y pagos en escrow. Conectamos propietarios e inquilinos en el mundo.",
 };
 
 export default function RootLayout({
