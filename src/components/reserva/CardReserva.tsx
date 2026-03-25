@@ -107,7 +107,6 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
           <div className="flex justify-between text-sm">
             <span className="text-slate-600">
               {precioMes}€ × {mesesDisplay} {mesesDisplay === 1 ? "mes" : "meses"}
-              {meses === null && <span className="text-slate-400 text-xs ml-1">(estimado)</span>}
             </span>
             <span className="font-medium text-slate-900">{subtotal.toLocaleString("es-ES")}€</span>
           </div>

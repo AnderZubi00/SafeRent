@@ -955,7 +955,7 @@ function CheckoutContent() {
                   <div className="flex justify-between">
                     <span className="text-slate-600">
                       {vivienda.precio_mes.toLocaleString("es-ES")}€ × {Math.max(1, calcularMeses())} {Math.max(1, calcularMeses()) === 1 ? "mes" : "meses"}
-                      {calcularMeses() === 0 && <span className="text-slate-400 text-xs ml-1">(estimado)</span>}
+                      {calcularMeses() === 0 && <span className="text-slate-400 text-xs ml-1"></span>}
                     </span>
                     <span className="font-medium">{(vivienda.precio_mes * Math.max(1, calcularMeses())).toLocaleString("es-ES")}€</span>
                   </div>
