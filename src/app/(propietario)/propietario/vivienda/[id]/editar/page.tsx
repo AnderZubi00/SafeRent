@@ -65,7 +65,7 @@ export default function EditarViviendaPage() {
     m2: "",
     num_registro_vivienda: "",
     direccion: "",
-    barrio: "",
+    provincia: "",
     ciudad: "",
     precio_mes: "",
     fianza_importe: "",
