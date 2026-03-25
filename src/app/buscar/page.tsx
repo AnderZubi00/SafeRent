@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/layout/Navbar";
@@ -37,6 +37,14 @@ const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
 const TODAS_PROVINCIAS = getAllProvincias();
 
 export default function BuscarPage() {
+  return (
+    <Suspense>
+      <BuscarContent />
+    </Suspense>
+  );
+}
+
+function BuscarContent() {
   const searchParams = useSearchParams();
   const ciudadParam = searchParams.get("ciudad") ?? "";
 
