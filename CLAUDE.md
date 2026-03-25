@@ -59,16 +59,18 @@ Three React Context layers, each scoped to its route group:
 - **`InquilinoContext`** (`(inquilino)/layout.tsx`) — `solicitudes`, `documentos`, `pagos`, `recargar()`.
 - **`PropietarioContext`** (`(propietario)/layout.tsx`) — `viviendas`, `solicitudes`, `pagos`, `solicitudesPendientes`, `recargar()`, `actualizarViviendaLocal()` (optimistic local update for single vivienda fields like `activa`).
 
-### Supabase Integration
-
-### Backend API (NestJS)
-
 ### Location System
 
 - **Static data**: `src/data/spain-locations.ts` — 50 Spanish provinces + cities per province. Helpers: `getAllProvincias()`, `getCiudadesByProvincia(code)`, `getProvinciaByCode(code)`, `getProvinciaByName(name)`.
 - **Shared component**: `src/components/forms/LocationSelector.tsx` — cascading Province → City selects with Nominatim address validation. Used in publicar and editar forms.
 - **Address validation**: `src/lib/address-validation.ts` — Nominatim (OpenStreetMap) geocoding, non-blocking (informational only).
 - **DB field**: `provincia` column on `viviendas` table (NOT NULL, default ""). Backend accepts it in create/update/filter DTOs.
+
+### Supabase Integration
+
+Supabase is used ONLY for auth state and storage URLs. All business data queries go through NestJS backend.
+
+### Backend API (NestJS)
 
 All business data (viviendas, solicitudes, contratos, pagos) is fetched from the NestJS backend via `src/lib/api.ts`. Supabase is used ONLY for:
 - **Auth state**: `onAuthStateChange` listener, session management
@@ -96,17 +98,17 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 
 ### Component Conventions
 
+- **UI primitives:** shadcn/ui components in `src/components/ui/` (Radix UI based)
+- **Animations:** Custom wrappers in `src/components/motion/` (Framer Motion: `MotionFadeInUp`, `MotionStagger`, `MotionCard`)
+- **Icons:** Lucide React
+- **Layout:** `Sidebar`, `TopBar`, `SidebarWrapper` in `src/components/layout/`
+
 ### Propietario Dashboard
 
 - **Photo management**: Photos stored in Supabase Storage bucket `viviendas-fotos`, URLs in `viviendas.fotos[]` array in DB.
 - **Publish form** (`/propietario/publicar`): Separate "foto principal" slot + unlimited additional photos grid. Uses LocationSelector for cascading provincia/ciudad.
 - **Toggle Visible/Pausada**: `ToggleActivaButton` uses optimistic update via `actualizarViviendaLocal()` from PropietarioContext. Pausada viviendas show grayscale photo. Backend `findAll()` filters `activa: true` for public search — pausada viviendas are hidden from tenants.
 - **IMPORTANT**: `actualizarVivienda()` in `src/lib/viviendas.ts` only includes `fotos` in PATCH payload when `fotosNuevas` or `fotosExistentes` params are explicitly passed. This prevents accidental photo deletion on field-only updates (e.g., toggling `activa`).
-
-- **UI primitives:** shadcn/ui components in `src/components/ui/` (Radix UI based)
-- **Animations:** Custom wrappers in `src/components/motion/` (Framer Motion: `MotionFadeInUp`, `MotionStagger`, `MotionCard`)
-- **Icons:** Lucide React
-- **Layout:** `Sidebar`, `TopBar`, `SidebarWrapper` in `src/components/layout/`
 
 ### TypeScript Types
 

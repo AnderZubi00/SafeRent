@@ -17,6 +17,20 @@ Read the linked skill file **before starting** when a task matches these trigger
 → READ FIRST: .agent/skills/frontend-design/SKILL.md
 ```
 
+### Propietario / Viviendas / Location
+**Triggers:** viviendas CRUD, publicar, editar propiedad, toggle visible/pausada, photo upload, location selector, provincia/ciudad, address validation, propietario dashboard, `actualizarViviendaLocal`.
+
+```
+→ READ FIRST: .agent/skills/saferent-architecture/SKILL.md (Location System section)
+→ KEY FILES:
+  - src/lib/viviendas.ts — CRUD + actualizarVivienda (careful with fotos param)
+  - src/components/forms/LocationSelector.tsx — cascading provincia/ciudad
+  - src/data/spain-locations.ts — static province/city data
+  - src/lib/address-validation.ts — Nominatim geocoding
+  - src/context/PropietarioContext.tsx — actualizarViviendaLocal for optimistic updates
+  - src/app/(propietario)/propietario/actions.ts — server actions (toggle, accept, reject)
+```
+
 ### Next.js / React / Performance / Deployment
 **Triggers:** React components, Next.js pages, App Router patterns, Server Components, data fetching, bundle optimization, API routes, Vercel deployment, hydration, caching.
 
@@ -131,6 +145,8 @@ saferent:stripe     — payments, escrow, Connect
 saferent:contracts  — PDF generation, Signaturit
 saferent:schema     — Supabase tables, RLS policies, migrations
 saferent:roles      — INQUILINO / PROPIETARIO / ADMINISTRADOR access logic
+saferent:viviendas  — property CRUD, photos, location, toggle active/paused
+saferent:propietario — propietario dashboard, vivienda management, optimistic updates
 ```
 
 ### mem_save format
@@ -213,6 +229,11 @@ src/lib/api.ts                     — HTTP client to NestJS backend (JWT auto-i
 src/lib/supabase/client.ts         — browser Supabase client
 src/lib/supabase/server.ts         — server Supabase client
 src/hooks/useNotifications.ts      — Socket.io WebSocket hook (real-time events)
+src/data/spain-locations.ts        — static Spanish province/city data (50 provinces)
+src/components/forms/LocationSelector.tsx — cascading provincia→ciudad selector + address validation
+src/lib/address-validation.ts      — Nominatim geocoding utility
+src/context/PropietarioContext.tsx  — propietario state: viviendas, solicitudes, pagos, actualizarViviendaLocal()
+src/app/(propietario)/propietario/actions.ts — server actions: toggleActiva, aceptar/rechazar solicitud
 src/types/index.ts                 — shared TS types
 src/components/motion/             — Framer Motion wrappers
 src/components/layout/             — Sidebar, TopBar
@@ -229,5 +250,6 @@ src/components/layout/             — Sidebar, TopBar
 - [ ] Does this touch KYC / OCR / MRZ / kyc_sesiones? → Load `kyc-ocr-saferent` skill + `mem_search("saferent:kyc")`
 - [ ] Does this touch auth / Stripe / schema (architectural)? → `mem_search` first
 - [ ] Does this touch 3+ files or introduce a new feature? → Plan Mode first
+- [ ] Does this touch viviendas / propietario dashboard / location? → Check `src/lib/viviendas.ts` actualizarVivienda fotos handling
 - [ ] Am I mixing role data? → Stop and isolate
 - [ ] Am I using an undocumented API? → Verify via Context7 docs

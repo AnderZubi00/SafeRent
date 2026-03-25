@@ -44,6 +44,7 @@ src/app/
 │       ├── liquidaciones/        # Settlement/payouts
 │       └── vivienda/
 │           └── [id]/
+│               ├── page.tsx      # Property detail (propietario view)
 │               └── editar/       # Edit property
 ├── (admin)/                      # Panel de admin — solo rol ADMINISTRADOR
 │   ├── layout.tsx
@@ -85,8 +86,8 @@ import { useInquilinoContext } from '@/context/InquilinoContext';
 const { solicitudes, viviendas, recargar } = useInquilinoContext();
 
 // En cualquier página de (propietario)
-import { usePropietarioContext } from '@/context/PropietarioContext';
-const { viviendas, solicitudesPendientes, recargar } = usePropietarioContext();
+import { usePropietario } from '@/context/PropietarioContext';
+const { viviendas, solicitudesPendientes, recargar, actualizarViviendaLocal } = usePropietario();
 
 // En cualquier lugar — auth y rol
 import { useAuthContext } from '@/context/AuthContext';
@@ -135,6 +136,8 @@ Los data helpers en `src/lib/` llaman al backend NestJS via `api.ts`. La excepci
 | `src/lib/viviendas.ts` | CRUD para la tabla `viviendas` |
 | `src/lib/contratos.ts` | Fetch de contratos, actualizaciones de estado |
 | `src/lib/pagos.ts` | Registros de pagos, referencias de Stripe |
+| `src/lib/address-validation.ts` | Validación de dirección via Nominatim (OpenStreetMap) |
+| `src/data/spain-locations.ts` | Datos estáticos de provincias/ciudades de España |
 
 ```typescript
 // CORRECTO — llamar el helper
@@ -267,8 +270,36 @@ El enforcement de route groups vive en `src/middleware.ts` — no duplicar check
 ¿Accediendo a data del contexto?
 ├── Auth/role → useAuthContext()
 ├── Data de inquilino → useInquilinoContext()
-└── Data de propietario → usePropietarioContext()
+└── Data de propietario → usePropietario()
 ```
+
+---
+
+## Location System
+
+Cascading province → city selection for Spain, used in publicar, editar, and buscar.
+
+### Static Data (`src/data/spain-locations.ts`)
+- 50 Spanish provinces with vehicle registration codes
+- Cities per province (capital first + main cities)
+- Helpers: `getAllProvincias()`, `getCiudadesByProvincia(code)`, `getProvinciaByCode(code)`, `getProvinciaByName(name)`
+
+### LocationSelector (`src/components/forms/LocationSelector.tsx`)
+- Shared component: cascading Province select → City select (disabled until province chosen)
+- Address input with Nominatim validation (non-blocking, informational)
+- Props: `provincia` (name), `ciudad`, `direccion`, onChange handlers, `errors`
+- Internally converts name ↔ code for Select values
+
+### Address Validation (`src/lib/address-validation.ts`)
+- Nominatim (OpenStreetMap) free geocoding API
+- Rate limit: 1 req/sec, requires User-Agent header
+- Returns `{ valid, formattedAddress?, lat?, lng? }`
+
+### Vivienda Photo Management
+- Photos stored in Supabase Storage bucket `viviendas-fotos`, URLs in `viviendas.fotos[]` DB array
+- `actualizarVivienda()` only sends `fotos` in PATCH when caller explicitly passes photo params — prevents accidental deletion
+- Publish form: separate "foto principal" + unlimited additional photos
+- Dashboard cards: pausada viviendas show grayscale filter
 
 ---
 
