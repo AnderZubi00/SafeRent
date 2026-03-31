@@ -9,8 +9,16 @@ read `AGENT.md` for routing rules, then load only the relevant skill from `.agen
 
 | Domain | Skill file |
 |---|---|
-| UI / Visual Design / Animations | `.agent/skills/frontend-design/SKILL.md` |
-| Next.js / React / Performance / Deployment | `.agent/skills/vercel-react-best-practices/SKILL.md` |
+| UI / Visual Design | `.agent/skills/frontend-design/SKILL.md` |
+| Animations (GSAP) | `.agent/skills/gsap-core/SKILL.md` + domain-specific `gsap-*` |
+| UI/UX Design Intelligence | `ui-ux-pro-max` plugin (invoke via skill) |
+| Component Generation | Magic MCP (`@21st-dev/magic`) |
+| Next.js / React / Performance | `.agent/skills/vercel-react-best-practices/SKILL.md` |
+| Architecture / Routes / Types | `.agent/skills/saferent-architecture/SKILL.md` |
+| Supabase / RLS / Auth | `.agent/skills/supabase-saferent/SKILL.md` |
+| Stripe / Payments / Escrow | `.agent/skills/stripe-connect-saferent/SKILL.md` |
+| KYC / OCR / MRZ / NFC | `.agent/skills/kyc-ocr-saferent/SKILL.md` |
+| SDD (Spec-Driven Dev) | Global: `~/.claude/skills/sdd-*/SKILL.md` |
 
 ## Commands
 
@@ -99,7 +107,7 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 ### Component Conventions
 
 - **UI primitives:** shadcn/ui components in `src/components/ui/` (Radix UI based)
-- **Animations:** Custom wrappers in `src/components/motion/` (Framer Motion: `MotionFadeInUp`, `MotionStagger`, `MotionCard`)
+- **Animations:** GSAP (primary, via `.agent/skills/gsap-*/`) + legacy Framer Motion wrappers in `src/components/motion/` (`MotionFadeInUp`, `MotionStagger`, `MotionCard`)
 - **Icons:** Lucide React
 - **Layout:** `Sidebar`, `TopBar`, `SidebarWrapper` in `src/components/layout/`
 

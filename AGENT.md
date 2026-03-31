@@ -11,10 +11,43 @@
 Read the linked skill file **before starting** when a task matches these triggers.
 
 ### UI / Visual Design
-**Triggers:** UI components, visual design, layout, colors, typography, animations, Framer Motion wrappers, new pages/screens, design systems, component aesthetics.
+**Triggers:** UI components, visual design, layout, colors, typography, Framer Motion wrappers, new pages/screens, component aesthetics.
 
 ```
 → READ FIRST: .agent/skills/frontend-design/SKILL.md
+```
+
+### Animations (GSAP)
+**Triggers:** animations, scroll animations, parallax, pinned sections, timeline sequences, stagger effects, GSAP, ScrollTrigger, useGSAP hook, entrance animations, page transitions.
+
+```
+→ READ FIRST: .agent/skills/gsap-core/SKILL.md (always)
+→ ALSO LOAD based on need:
+  - .agent/skills/gsap-react/SKILL.md — React/Next.js integration (useGSAP hook)
+  - .agent/skills/gsap-scrolltrigger/SKILL.md — scroll-driven animations, pinning
+  - .agent/skills/gsap-timeline/SKILL.md — sequenced animations
+  - .agent/skills/gsap-plugins/SKILL.md — FLIP, Draggable, SplitText
+  - .agent/skills/gsap-performance/SKILL.md — optimization
+  - .agent/skills/gsap-utils/SKILL.md — utility functions
+  - .agent/skills/gsap-frameworks/SKILL.md — (only for non-React frameworks)
+```
+
+### UI/UX Design System & Guidelines
+**Triggers:** design system, color palette, typography, font pairing, accessibility audit, UX review, style selection, product type design, responsive design, touch targets, contrast ratios.
+
+```
+→ INVOKE SKILL: ui-ux-pro-max:ui-ux-pro-max
+→ PATH (for sub-agents): ~/.claude/plugins/cache/ui-ux-pro-max-skill/ui-ux-pro-max/2.5.0/.claude/skills/ui-ux-pro-max/SKILL.md
+→ ALSO AVAILABLE: Magic MCP (@21st-dev/magic) for component generation
+```
+
+### Spec-Driven Development (SDD)
+**Triggers:** new feature (3+ files), schema migration, refactor, architectural change, "sdd-new", "sdd-explore", "sdd-continue".
+
+```
+→ SDD skills are global at ~/.claude/skills/sdd-*/SKILL.md
+→ Orchestrated by the SDD workflow (see ~/.claude/CLAUDE.md)
+→ UI/UX SDDs automatically load ui-ux-pro-max + GSAP skills (see sdd-phase-common.md)
 ```
 
 ### Propietario / Viviendas / Location
@@ -86,7 +119,8 @@ Read the linked skill file **before starting** when a task matches these trigger
 | Auth & Storage | Supabase (Auth state + Storage URLs only) |
 | Payments | Stripe Connect (escrow model) |
 | Contracts | Signaturit (digital signature) + PDF generation |
-| Animations | Framer Motion via `src/components/motion/` |
+| Animations | GSAP (primary) + Framer Motion (legacy wrappers in `src/components/motion/`) |
+| Design Intelligence | ui-ux-pro-max plugin + Magic MCP (`@21st-dev/magic`) |
 | Icons | Lucide React |
 | Deployment | Vercel |
 
@@ -216,6 +250,15 @@ These are non-negotiable constraints for all AI-assisted work on this project.
 .agent/skills/stripe-connect-saferent/SKILL.md      — pagos, escrow, webhooks
 .agent/skills/saferent-business-rules/SKILL.md      — lifecycle solicitud→contrato→pago
 .agent/skills/kyc-ocr-saferent/SKILL.md             — KYC pipeline, GPT-4o OCR, MRZ/ICAO, scoring, kyc_sesiones
+.agent/skills/gsap-core/SKILL.md                    — GSAP core API, tweens, easing, stagger
+.agent/skills/gsap-react/SKILL.md                   — React/Next.js GSAP integration (useGSAP)
+.agent/skills/gsap-scrolltrigger/SKILL.md            — scroll-driven animations, pinning, scrub
+.agent/skills/gsap-timeline/SKILL.md                 — animation sequencing, position parameter
+.agent/skills/gsap-plugins/SKILL.md                  — FLIP, Draggable, SplitText, ScrollSmoother
+.agent/skills/gsap-performance/SKILL.md              — animation optimization, will-change, GPU
+.agent/skills/gsap-utils/SKILL.md                    — clamp, mapRange, snap, toArray, wrap
+.agent/skills/gsap-frameworks/SKILL.md               — Vue/Svelte integration (not for React)
+~/.claude/plugins/.../ui-ux-pro-max/SKILL.md         — 50+ styles, 161 palettes, 99 UX guidelines
 ```
 
 ### Key source locations
@@ -251,5 +294,8 @@ src/components/layout/             — Sidebar, TopBar
 - [ ] Does this touch auth / Stripe / schema (architectural)? → `mem_search` first
 - [ ] Does this touch 3+ files or introduce a new feature? → Plan Mode first
 - [ ] Does this touch viviendas / propietario dashboard / location? → Check `src/lib/viviendas.ts` actualizarVivienda fotos handling
+- [ ] Does this involve animations? → Load `gsap-core` + relevant gsap-* skills
+- [ ] Does this involve design system / color / typography / UX? → Invoke `ui-ux-pro-max` skill
+- [ ] Is this a new feature or major change? → Use SDD workflow (`/sdd-new {name}`)
 - [ ] Am I mixing role data? → Stop and isolate
 - [ ] Am I using an undocumented API? → Verify via Context7 docs
