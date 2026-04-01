@@ -1,11 +1,17 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 const TOKEN_KEY = 'saferent_jwt';
+// 8 días — ligeramente superior al JWT (7d) para cubrir el re-exchange
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 8;
 
-/** Almacena el JWT del backend en localStorage */
+/**
+ * Almacena el JWT del backend en localStorage Y en una cookie.
+ * La cookie permite al middleware de Next.js leer el rol sin llamar al backend.
+ */
 export function setBackendToken(token: string) {
   if (typeof window !== 'undefined') {
     localStorage.setItem(TOKEN_KEY, token);
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
   }
 }
 
@@ -17,10 +23,11 @@ export function getBackendToken(): string | null {
   return null;
 }
 
-/** Elimina el JWT almacenado */
+/** Elimina el JWT del localStorage y de la cookie */
 export function clearBackendToken() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(TOKEN_KEY);
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
   }
 }
 

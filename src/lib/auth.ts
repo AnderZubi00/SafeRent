@@ -127,3 +127,14 @@ export async function obtenerUsuarioActual(): Promise<UsuarioAuth | null> {
     return null;
   }
 }
+
+/**
+ * Re-autentica usando la sesión activa de Supabase sin necesidad de contraseña.
+ * Útil para restaurar el backend JWT tras expiración o en el arranque del store.
+ */
+export async function reautenticarConSesionActual(): Promise<UsuarioAuth | null> {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+  return exchangeForBackendJwt(session.access_token);
+}

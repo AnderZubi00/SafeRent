@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { createClient } from "@/lib/supabase/client";
-import type { UsuarioAuth } from "@/lib/auth";
+import {
+  obtenerUsuarioActual,
+  reautenticarConSesionActual,
+  type UsuarioAuth,
+} from "@/lib/auth";
+import { clearBackendToken, getBackendToken } from "@/lib/api";
 
 interface AuthState {
   /** undefined = cargando, null = sin sesión, UsuarioAuth = logueado */
@@ -21,40 +26,63 @@ export const useAuthStore = create<AuthState>((set) => ({
   cerrarSesion: async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    clearBackendToken();
     set({ usuario: null, cargando: false });
   },
 
   _init: () => {
     const supabase = createClient();
 
-    // Carga el perfil de la sesión activa al arrancar
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) {
+    async function cargarPerfil() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        clearBackendToken();
         set({ usuario: null, cargando: false });
         return;
       }
-      const { data: perfil } = await supabase
-        .from("usuarios")
-        .select("id, email, nombre_completo, rol, verificado_kyc")
-        .eq("id", user.id)
-        .single();
-      set({ usuario: (perfil as UsuarioAuth) ?? null, cargando: false });
-    });
 
-    // Escucha cambios de sesión (login, logout, token refresh)
+      // Intenta usar el JWT almacenado para obtener el perfil (sin red extra)
+      if (getBackendToken()) {
+        try {
+          const usuario = await obtenerUsuarioActual();
+          if (usuario) {
+            set({ usuario, cargando: false });
+            return;
+          }
+        } catch {
+          // JWT expirado — continúa al re-exchange
+        }
+      }
+
+      // Re-intercambia el token de Supabase por un JWT fresco del backend
+      try {
+        const usuario = await reautenticarConSesionActual();
+        set({ usuario: usuario ?? null, cargando: false });
+      } catch {
+        clearBackendToken();
+        set({ usuario: null, cargando: false });
+      }
+    }
+
+    cargarPerfil();
+
+    // Escucha eventos de sesión de Supabase
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session?.user) {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
+        clearBackendToken();
         set({ usuario: null, cargando: false });
         return;
       }
-      const { data: perfil } = await supabase
-        .from("usuarios")
-        .select("id, email, nombre_completo, rol, verificado_kyc")
-        .eq("id", session.user.id)
-        .single();
-      set({ usuario: (perfil as UsuarioAuth) ?? null, cargando: false });
+      // TOKEN_REFRESHED: el backend JWT (7d) sigue válido, no hay que re-exchange.
+      // SIGNED_IN desde otra pestaña: recargamos el perfil.
+      if (event === "SIGNED_IN") {
+        cargarPerfil();
+      }
     });
 
     return () => subscription.unsubscribe();
