@@ -64,6 +64,19 @@ Read the linked skill file **before starting** when a task matches these trigger
   - src/app/(propietario)/propietario/actions.ts — server actions (toggle, accept, reject)
 ```
 
+### Publicar Wizard / Borradores / Draft Flow
+**Triggers:** publicar wizard, borradores, fases, draft flow, publication, wizard phases, nota simple, borrador lifecycle, fase_actual, es_borrador, publicar validation.
+
+```
+→ READ FIRST: .agent/skills/publicar-wizard/SKILL.md
+→ KEY FILES:
+  - src/app/(propietario)/propietario/publicar/page.tsx — wizard container
+  - src/app/(propietario)/propietario/publicar/_components/ — stepper + 5 phase components
+  - src/lib/viviendas.ts — crearBorrador, guardarFase, obtenerBorradores, publicarViviendaFinal
+  - src/lib/kyc.ts — completarKycPropietario
+  - src/app/(propietario)/propietario/page.tsx — dashboard borradores section
+```
+
 ### Next.js / React / Performance / Deployment
 **Triggers:** React components, Next.js pages, App Router patterns, Server Components, data fetching, bundle optimization, API routes, Vercel deployment, hydration, caching.
 
@@ -250,6 +263,7 @@ These are non-negotiable constraints for all AI-assisted work on this project.
 .agent/skills/stripe-connect-saferent/SKILL.md      — pagos, escrow, webhooks
 .agent/skills/saferent-business-rules/SKILL.md      — lifecycle solicitud→contrato→pago
 .agent/skills/kyc-ocr-saferent/SKILL.md             — KYC pipeline, GPT-4o OCR, MRZ/ICAO, scoring, kyc_sesiones
+.agent/skills/publicar-wizard/SKILL.md             — 5-phase publicar wizard, borradores, draft lifecycle
 .agent/skills/gsap-core/SKILL.md                    — GSAP core API, tweens, easing, stagger
 .agent/skills/gsap-react/SKILL.md                   — React/Next.js GSAP integration (useGSAP)
 .agent/skills/gsap-scrolltrigger/SKILL.md            — scroll-driven animations, pinning, scrub
@@ -294,6 +308,7 @@ src/components/layout/             — Sidebar, TopBar
 - [ ] Does this touch auth / Stripe / schema (architectural)? → `mem_search` first
 - [ ] Does this touch 3+ files or introduce a new feature? → Plan Mode first
 - [ ] Does this touch viviendas / propietario dashboard / location? → Check `src/lib/viviendas.ts` actualizarVivienda fotos handling
+- [ ] Does this touch publicar wizard / borradores / draft flow / fases? → Load `publicar-wizard` skill
 - [ ] Does this involve animations? → Load `gsap-core` + relevant gsap-* skills
 - [ ] Does this involve design system / color / typography / UX? → Invoke `ui-ux-pro-max` skill
 - [ ] Is this a new feature or major change? → Use SDD workflow (`/sdd-new {name}`)

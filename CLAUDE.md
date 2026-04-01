@@ -18,6 +18,7 @@ read `AGENT.md` for routing rules, then load only the relevant skill from `.agen
 | Supabase / RLS / Auth | `.agent/skills/supabase-saferent/SKILL.md` |
 | Stripe / Payments / Escrow | `.agent/skills/stripe-connect-saferent/SKILL.md` |
 | KYC / OCR / MRZ / NFC | `.agent/skills/kyc-ocr-saferent/SKILL.md` |
+| Publicar wizard / Borradores / Draft flow | `.agent/skills/publicar-wizard/SKILL.md` |
 | SDD (Spec-Driven Dev) | Global: `~/.claude/skills/sdd-*/SKILL.md` |
 
 ## Commands
@@ -114,8 +115,10 @@ All business data (viviendas, solicitudes, contratos, pagos) is fetched from the
 ### Propietario Dashboard
 
 - **Photo management**: Photos stored in Supabase Storage bucket `viviendas-fotos`, URLs in `viviendas.fotos[]` array in DB.
-- **Publish form** (`/propietario/publicar`): Separate "foto principal" slot + unlimited additional photos grid. Uses LocationSelector for cascading provincia/ciudad.
-- **Toggle Visible/Pausada**: `ToggleActivaButton` uses optimistic update via `actualizarViviendaLocal()` from PropietarioContext. Pausada viviendas show grayscale photo. Backend `findAll()` filters `activa: true` for public search — pausada viviendas are hidden from tenants.
+- **Publication flow**: The publish form (`/propietario/publicar`) is now a 5-phase persistent wizard with borrador (draft) support. Each phase saves progress to DB — users can exit and resume at any time. Phases: (1) Nombre del piso, (2) Verificación KYC, (3) Datos de la vivienda, (4) Precio y disponibilidad, (5) Verificación + Publicar.
+- **Borradores pendientes**: Dashboard shows a "Borradores pendientes" section with phase indicators (`fase_actual`) so landlords can see incomplete drafts and resume them.
+- **Draft schema fields**: `fase_actual Int @default(1)` and `es_borrador Boolean @default(false)` on the Vivienda model. `es_borrador` defaults to `false` to protect existing data.
+- **Toggle Visible/Pausada**: `ToggleActivaButton` uses optimistic update via `actualizarViviendaLocal()` from PropietarioContext. Pausada viviendas show grayscale photo. Backend `findAll()` filters `es_borrador: false` AND `activa: true` for public search — pausada viviendas and borradores are hidden from tenants.
 - **IMPORTANT**: `actualizarVivienda()` in `src/lib/viviendas.ts` only includes `fotos` in PATCH payload when `fotosNuevas` or `fotosExistentes` params are explicitly passed. This prevents accidental photo deletion on field-only updates (e.g., toggling `activa`).
 
 ### TypeScript Types

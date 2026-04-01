@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { MagicCard } from "@/components/magicui/magic-card";
 import { NumberTicker } from "@/components/magicui/number-ticker";
@@ -11,10 +11,12 @@ import {
   MapPin, Plus, Users, Wallet, CheckCircle2, TrendingUp,
   Building2, ArrowRight, PartyPopper, Loader2, Calendar,
   User, Clock, FileText, Inbox, EyeOff, ExternalLink,
+  FileEdit, Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePropietario } from "@/context/PropietarioContext";
 import ToggleActivaButton from "./_components/ToggleActivaButton";
+import { obtenerBorradores, eliminarBorrador } from "@/lib/viviendas";
 import type { Vivienda } from "@/lib/viviendas";
 
 const CARD_COLORS = [
@@ -38,6 +40,14 @@ const MOTIVO_ICON: Record<string, typeof Users> = {
   Otros: Users,
 };
 
+const FASE_NOMBRES: Record<number, string> = {
+  1: "Nombre del piso",
+  2: "Verificación KYC",
+  3: "Datos de la vivienda",
+  4: "Precio y disponibilidad",
+  5: "Verificación",
+};
+
 export default function PropietarioInicio() {
   return (
     <Suspense fallback={
@@ -51,11 +61,44 @@ export default function PropietarioInicio() {
 }
 
 function PropietarioInicioContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const publicada = searchParams.get("publicada");
   const editada = searchParams.get("editada");
 
   const { viviendas, solicitudes, pagos, solicitudesPendientes, cargando } = usePropietario();
+
+  const [borradores, setBorradores] = useState<Vivienda[]>([]);
+  const [cargandoBorradores, setCargandoBorradores] = useState(true);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+
+  const cargarBorradores = useCallback(async () => {
+    try {
+      setCargandoBorradores(true);
+      const data = await obtenerBorradores();
+      setBorradores(data);
+    } catch {
+      console.error("Error al cargar borradores");
+    } finally {
+      setCargandoBorradores(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    cargarBorradores();
+  }, [cargarBorradores]);
+
+  const handleEliminarBorrador = async (id: string) => {
+    setEliminandoId(id);
+    try {
+      await eliminarBorrador(id);
+      setBorradores((prev) => prev.filter((b) => b.id !== id));
+    } catch {
+      console.error("Error al eliminar borrador");
+    } finally {
+      setEliminandoId(null);
+    }
+  };
 
   const totalViviendas = viviendas.length;
   const activas = viviendas.filter((v) => v.activa).length;
@@ -192,6 +235,82 @@ function PropietarioInicioContent() {
           </MagicCard>
         ))}
       </div>
+
+      {/* Borradores pendientes */}
+      {!cargandoBorradores && borradores.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+              <FileEdit className="h-4 w-4 text-indigo-500" />
+              Borradores pendientes
+            </h2>
+            <span className="text-xs text-slate-500">
+              {borradores.length} borrador{borradores.length !== 1 ? "es" : ""}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {borradores.map((b) => (
+              <Card key={b.id} className="ring-1 ring-indigo-100 shadow-sm border-0 hover:shadow-md transition-shadow bg-indigo-50/30">
+                <CardContent className="p-4 space-y-3">
+                  <div>
+                    <h3 className="font-semibold text-slate-900 text-sm truncate">
+                      {b.titulo || "Sin título"}
+                    </h3>
+                    <p className="text-xs text-indigo-600 font-medium mt-1">
+                      Fase {b.fase_actual} de 5 — {FASE_NOMBRES[b.fase_actual] ?? "Desconocida"}
+                    </p>
+                    <div className="flex gap-0.5 mt-2">
+                      {[1, 2, 3, 4, 5].map((step) => (
+                        <div
+                          key={step}
+                          className={cn(
+                            "h-1.5 flex-1 rounded-full",
+                            step < b.fase_actual
+                              ? "bg-indigo-500"
+                              : step === b.fase_actual
+                                ? "bg-indigo-400"
+                                : "bg-slate-200"
+                          )}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="flex-1 h-7 text-xs gap-1 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      onClick={() => router.push(`/propietario/publicar?id=${b.id}`)}
+                    >
+                      Continuar <ArrowRight className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 w-7 p-0 ring-1 ring-rose-200 border-0 text-rose-500 hover:bg-rose-50"
+                      title="Eliminar borrador"
+                      disabled={eliminandoId === b.id}
+                      onClick={() => handleEliminarBorrador(b.id)}
+                    >
+                      {eliminandoId === b.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cargandoBorradores && (
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Cargando borradores...
+        </div>
+      )}
 
       {/* Solicitudes recientes */}
       {solicitudesRecientes.length > 0 && (
