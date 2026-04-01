@@ -62,7 +62,9 @@ export function PropietarioProvider({ children }: { children: ReactNode }) {
         obtenerPagosPropietario(),
       ]);
 
-      setViviendas(vivResult.data);
+      // Safety filter: backend already filters es_borrador=false,
+      // but we defend client-side in case of API changes
+      setViviendas(vivResult.data.filter((v: Vivienda) => !v.es_borrador));
       setPagos(pagResult.data);
 
       const conContratos: SolicitudConContrato[] = [];

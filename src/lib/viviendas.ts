@@ -27,6 +27,8 @@ export interface Vivienda {
   estancia_maxima: number;
   fotos: string[];
   fecha_creacion: string;
+  fase_actual: number;
+  es_borrador: boolean;
 }
 
 export interface PublicarViviendaInput {
@@ -213,4 +215,46 @@ export async function obtenerMisViviendas(): Promise<{
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };
   }
+}
+
+// ---------------------------------------------------------------------------
+// Borrador (draft) helpers — 5-phase wizard
+// ---------------------------------------------------------------------------
+
+/** Create a borrador with just the title */
+export async function crearBorrador(titulo: string): Promise<Vivienda> {
+  return api.post<Vivienda>("/viviendas/borrador", { titulo });
+}
+
+/** Save data for a specific phase */
+export async function guardarFase(
+  id: string,
+  faseNum: number,
+  data: Record<string, unknown>,
+): Promise<Vivienda> {
+  return api.patch<Vivienda>(`/viviendas/${id}/fase/${faseNum}`, data);
+}
+
+/** Get all user's borradores */
+export async function obtenerBorradores(): Promise<Vivienda[]> {
+  return api.get<Vivienda[]>("/viviendas/borradores");
+}
+
+/** Publish a vivienda (validates all fields server-side) */
+export async function publicarViviendaFinal(id: string): Promise<Vivienda> {
+  return api.post<Vivienda>(`/viviendas/${id}/publicar`);
+}
+
+/** Get signed URL for nota simple upload */
+export async function obtenerUrlNotaSimple(
+  id: string,
+): Promise<{ signedUrl: string; publicUrl: string }> {
+  return api.post<{ signedUrl: string; publicUrl: string }>(
+    `/viviendas/${id}/nota-simple/upload-url`,
+  );
+}
+
+/** Delete a borrador */
+export async function eliminarBorrador(id: string): Promise<void> {
+  await api.delete(`/viviendas/${id}/borrador`);
 }

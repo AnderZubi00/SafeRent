@@ -9,6 +9,9 @@ export interface UsuarioAuth {
   nombre_completo: string;
   rol: Rol;
   verificado_kyc: boolean;
+  nombre_kyc?: string;
+  apellidos_kyc?: string;
+  tipo_documento?: string;
 }
 
 export function rutaSegunRol(rol: Rol): string {

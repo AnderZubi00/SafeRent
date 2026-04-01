@@ -11,6 +11,9 @@ export interface User {
   phone?: string;
   avatarUrl?: string;
   role: UserRole;
+  nombre_kyc?: string;
+  apellidos_kyc?: string;
+  tipo_documento?: string;
   createdAt: string;
   updatedAt: string;
 }
