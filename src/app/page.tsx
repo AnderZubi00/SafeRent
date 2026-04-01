@@ -578,8 +578,7 @@ export default function LandingPage() {
               <Link href="/buscar">
                 <Button
                   variant="outline"
-                  className="border-slate-700 text-slate-300 hover:bg-white/5 hover:text-white hover:border-slate-500 px-8 h-12 rounded-xl text-sm cursor-pointer"
-                  style={{ fontWeight: 500 }}
+                  className="bg-white text-slate-900 border-white/80 hover:bg-white/5 hover:text-white hover:border-slate-500 px-8 h-12 rounded-xl text-sm font-semibold shadow-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                 >
                   Explorar viviendas
                 </Button>
