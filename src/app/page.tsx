@@ -229,12 +229,11 @@ export default function LandingPage() {
             className="bg-white rounded-2xl border border-slate-100 p-8 md:p-10 -mt-8 relative z-20 overflow-hidden"
             style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}
           >
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 md:gap-12">
               {[
                 { icon: Users, value: 14000, suffix: "+", label: "Inquilinos satisfechos", color: "text-indigo-600", bg: "bg-indigo-50" },
                 { icon: Building2, value: 2400, suffix: "+", label: "Viviendas verificadas", color: "text-emerald-600", bg: "bg-emerald-50" },
                 { icon: Star, value: 98, suffix: "%", label: "Contratos sin incidencias", color: "text-amber-600", bg: "bg-amber-50" },
-                { icon: Shield, value: 0, suffix: "€", label: "Comisión inquilino", color: "text-violet-600", bg: "bg-violet-50" },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
