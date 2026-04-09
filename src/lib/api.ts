@@ -1,35 +1,25 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-const TOKEN_KEY = 'saferent_jwt';
-// 8 días — ligeramente superior al JWT (7d) para cubrir el re-exchange
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 8;
-
 /**
- * Almacena el JWT del backend en localStorage Y en una cookie.
- * La cookie permite al middleware de Next.js leer el rol sin llamar al backend.
+ * El JWT vive en una cookie HttpOnly seteada por el backend en /auth/exchange.
+ * JS nunca puede leerla — el navegador la envía automáticamente con credentials: 'include'.
  */
-export function setBackendToken(token: string) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(TOKEN_KEY, token);
-    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
-  }
+
+/** Limpia la sesión llamando al endpoint de logout del backend (borra la cookie HttpOnly). */
+export async function clearBackendToken(): Promise<void> {
+  await fetch(`${API_URL}/api/v1/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {
+    // Si el logout falla (p.ej. red caída) seguimos deslogueando localmente
+  });
 }
 
-/** Obtiene el JWT almacenado */
-export function getBackendToken(): string | null {
-  if (typeof window !== 'undefined') {
-    return localStorage.getItem(TOKEN_KEY);
-  }
-  return null;
-}
+/** @deprecated La cookie HttpOnly la setea el servidor — esta función ya no hace nada. */
+export function setBackendToken(_token: string): void {}
 
-/** Elimina el JWT del localStorage y de la cookie */
-export function clearBackendToken() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(TOKEN_KEY);
-    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
-  }
-}
+/** @deprecated La cookie HttpOnly no es legible desde JS. Siempre devuelve null. */
+export function getBackendToken(): null { return null; }
 
 async function request<T>(
   endpoint: string,
@@ -42,15 +32,10 @@ async function request<T>(
     ...(options?.headers as Record<string, string>),
   };
 
-  // Inyectar JWT automáticamente si existe
-  const token = getBackendToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {

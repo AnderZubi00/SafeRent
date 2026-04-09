@@ -5,7 +5,7 @@ import {
   reautenticarConSesionActual,
   type UsuarioAuth,
 } from "@/lib/auth";
-import { clearBackendToken, getBackendToken } from "@/lib/api";
+import { clearBackendToken } from "@/lib/api";
 
 interface AuthState {
   /** undefined = cargando, null = sin sesión, UsuarioAuth = logueado */
@@ -44,17 +44,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         return;
       }
 
-      // Intenta usar el JWT almacenado para obtener el perfil (sin red extra)
-      if (getBackendToken()) {
-        try {
-          const usuario = await obtenerUsuarioActual();
-          if (usuario) {
-            set({ usuario, cargando: false });
-            return;
-          }
-        } catch {
-          // JWT expirado — continúa al re-exchange
+      // Intenta obtener el perfil usando la cookie HttpOnly (si existe y es válida)
+      try {
+        const usuario = await obtenerUsuarioActual();
+        if (usuario) {
+          set({ usuario, cargando: false });
+          return;
         }
+      } catch {
+        // Cookie expirada o inexistente — continúa al re-exchange
       }
 
       // Re-intercambia el token de Supabase por un JWT fresco del backend

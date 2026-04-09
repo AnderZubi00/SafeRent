@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { io, type Socket } from "socket.io-client";
-import { getBackendToken } from "@/lib/api";
 
 export function useNotifications(
   events: Record<string, (data: unknown) => void>,
@@ -13,12 +12,9 @@ export function useNotifications(
   useEffect(() => {
     if (!enabled) return;
 
-    const token = getBackendToken();
-    if (!token) return;
-
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
     const socket = io(`${apiUrl}/notifications`, {
-      auth: { token },
+      withCredentials: true,
       transports: ["websocket"],
     });
 
