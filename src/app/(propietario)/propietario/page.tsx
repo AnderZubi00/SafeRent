@@ -11,10 +11,12 @@ import {
   MapPin, Plus, Users, Wallet, CheckCircle2, TrendingUp,
   Building2, ArrowRight, PartyPopper, Loader2, Calendar,
   User, Clock, FileText, Inbox, EyeOff, ExternalLink,
-  FileEdit, Trash2,
+  FileEdit, Trash2, CreditCard, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePropietario } from "@/context/PropietarioContext";
+import { useAuth } from "@/context/AuthContext";
+import { mockStripeConnect } from "@/lib/stripe-connect";
 import ToggleActivaButton from "./_components/ToggleActivaButton";
 import { obtenerBorradores, eliminarBorrador } from "@/lib/viviendas";
 import type { Vivienda } from "@/lib/viviendas";
@@ -65,8 +67,12 @@ function PropietarioInicioContent() {
   const searchParams = useSearchParams();
   const publicada = searchParams.get("publicada");
   const editada = searchParams.get("editada");
+  const stripeConnected = searchParams.get("stripe_connected");
 
   const { viviendas, solicitudes, pagos, solicitudesPendientes, cargando } = usePropietario();
+  const { usuario } = useAuth();
+
+  const [loadingStripe, setLoadingStripe] = useState(false);
 
   const [borradores, setBorradores] = useState<Vivienda[]>([]);
   const [cargandoBorradores, setCargandoBorradores] = useState(true);
@@ -112,7 +118,7 @@ function PropietarioInicioContent() {
       const fecha = new Date(p.fecha_pago);
       return fecha.getMonth() === mesActual && fecha.getFullYear() === anioActual;
     })
-    .reduce((sum, p) => sum + p.importe, 0);
+    .reduce((sum, p) => sum + (p.importe_propietario ?? p.importe), 0);
 
   const solicitudesRecientes = solicitudes
     .filter((s) => s.estado === "PENDIENTE")
@@ -175,6 +181,44 @@ function PropietarioInicioContent() {
           </Button>
         </Link>
       </div>
+
+      {usuario?.stripe_onboarding_complete ? (
+        stripeConnected && (
+          <div className="flex items-center gap-3 bg-emerald-50 ring-1 ring-emerald-200 rounded-2xl px-5 py-4 shadow-sm">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-emerald-800">Cuenta bancaria conectada correctamente</p>
+              <p className="text-sm text-emerald-700 mt-0.5">Ya podés recibir pagos de tus inquilinos a través de Stripe.</p>
+            </div>
+          </div>
+        )
+      ) : (
+        <div className="flex items-center gap-3 bg-amber-50 ring-1 ring-amber-200 rounded-2xl px-5 py-4 shadow-sm">
+          <CreditCard className="h-5 w-5 text-amber-600 shrink-0" />
+          <div className="flex-1">
+            <p className="font-semibold text-amber-800">Conecta tu cuenta bancaria</p>
+            <p className="text-sm text-amber-700 mt-0.5">Necesitas vincular tu cuenta de Stripe para recibir pagos de tus inquilinos.</p>
+          </div>
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white border-0 gap-2 shrink-0"
+            disabled={loadingStripe}
+            onClick={async () => {
+              setLoadingStripe(true);
+              const { data, error } = await mockStripeConnect();
+              if (data?.url) {
+                window.location.href = data.url;
+              } else {
+                console.error("Stripe onboarding error:", error);
+                setLoadingStripe(false);
+              }
+            }}
+          >
+            {loadingStripe && <Loader2 className="h-4 w-4 animate-spin" />}
+            Conectar cuenta
+          </Button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -432,7 +476,14 @@ function PropietarioInicioContent() {
                   </CardContent>
                 </Link>
 
-                <div className="px-4 pb-4">
+                <div className="px-4 pb-4 space-y-2">
+                  {!v.verificada && (
+                    <Link href={`/propietario/publicar?id=${v.id}`}>
+                      <Button size="sm" className="w-full h-7 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0 gap-1">
+                        <Shield className="h-3 w-3" /> Completar verificación
+                      </Button>
+                    </Link>
+                  )}
                   <div className="flex gap-2 items-center">
                     <ToggleActivaButton id={v.id} activa={v.activa} />
                     <Link href={`/propietario/vivienda/${v.id}/editar`} className="flex-1">

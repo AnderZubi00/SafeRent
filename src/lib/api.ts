@@ -55,9 +55,12 @@ async function request<T>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
-    const msg = typeof error.message === 'object'
-      ? JSON.stringify(error.message)
-      : (error.message ?? `Error ${response.status}`);
+    // Si hay código estructurado (ej. STRIPE_NOT_CONNECTED), serializar todo
+    // para que el caller pueda hacer JSON.parse(e.message) y leer el código
+    if (error.code || typeof error.message === 'object') {
+      throw new Error(JSON.stringify(error));
+    }
+    const msg = error.message ?? `Error ${response.status}`;
     throw new Error(msg);
   }
 

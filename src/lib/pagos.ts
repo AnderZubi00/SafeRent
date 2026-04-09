@@ -10,6 +10,10 @@ export interface Pago {
   estado: string;
   fecha_pago: string;
   metodo: string;
+  comision_plataforma?: number;
+  comision_host?: number;
+  comision_guest?: number;
+  importe_propietario?: number;
   vivienda?: {
     titulo: string;
     ciudad: string;
@@ -69,6 +73,28 @@ export async function obtenerPagosPropietario(): Promise<{
     return { data, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };
+  }
+}
+
+export async function obtenerFeePreview(amount: number): Promise<{
+  data: {
+    rentAmount: number;
+    guestFeePct: number;
+    guestFee: number;
+    totalCharge: number;
+  } | null;
+  error: string | null;
+}> {
+  try {
+    const data = await api.get<{
+      rentAmount: number;
+      guestFeePct: number;
+      guestFee: number;
+      totalCharge: number;
+    }>(`/pagos/fee-preview?amount=${amount}`);
+    return { data, error: null };
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Error" };
   }
 }
 

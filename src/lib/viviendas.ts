@@ -59,6 +59,7 @@ export interface FiltrosVivienda {
   precioMin?: number;
   precioMax?: number;
   habitaciones?: number;
+  soloVerificadas?: boolean;
 }
 
 export function getPublicPhotoUrl(path: string): string {
@@ -140,6 +141,7 @@ export async function obtenerViviendas(
     if (filtros?.precioMax !== undefined) params.set("precioMax", String(filtros.precioMax));
     if (filtros?.habitaciones !== undefined && filtros.habitaciones > 0)
       params.set("habitaciones", String(filtros.habitaciones));
+    if (filtros?.soloVerificadas === true) params.set("soloVerificadas", "true");
 
     const query = params.toString();
     const data = await api.get<Vivienda[]>(`/viviendas${query ? `?${query}` : ""}`);
@@ -243,6 +245,10 @@ export async function obtenerBorradores(): Promise<Vivienda[]> {
 /** Publish a vivienda (validates all fields server-side) */
 export async function publicarViviendaFinal(id: string): Promise<Vivienda> {
   return api.post<Vivienda>(`/viviendas/${id}/publicar`);
+}
+
+export async function verificarVivienda(id: string): Promise<Vivienda> {
+  return api.post<Vivienda>(`/viviendas/${id}/verificar`);
 }
 
 /** Get signed URL for nota simple upload */

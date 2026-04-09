@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -21,9 +21,16 @@ export default function PublicarViviendaPage() {
   const searchParams = useSearchParams();
   const { usuario, cargando: cargandoAuth } = useAuth();
 
+  const router = useRouter();
   const [faseActual, setFaseActual] = useState(1);
   const [vivienda, setVivienda] = useState<Vivienda | null>(null);
   const [cargando, setCargando] = useState(true);
+
+  // Is this a published vivienda returning for verification only?
+  const modoVerificacion = useMemo(
+    () => vivienda !== null && !vivienda.es_borrador && !vivienda.verificada,
+    [vivienda],
+  );
 
   // ── Load existing borrador or start fresh ──
   useEffect(() => {
@@ -32,19 +39,26 @@ export default function PublicarViviendaPage() {
 
       try {
         if (idParam) {
-          // Resume a specific borrador
           const { data } = await obtenerViviendaById(idParam);
           if (data) {
+            // Already published AND verified → nothing to do here
+            if (!data.es_borrador && data.verificada) {
+              router.push("/propietario");
+              return;
+            }
             setVivienda(data);
-            // Go to the next incomplete phase
-            const nextFase = data.fase_actual >= 5 ? 5 : data.fase_actual + 1;
-            setFaseActual(nextFase);
+            // Published but unverified → go straight to fase 5
+            if (!data.es_borrador && !data.verificada) {
+              setFaseActual(5);
+            } else {
+              const nextFase = data.fase_actual >= 5 ? 5 : data.fase_actual + 1;
+              setFaseActual(nextFase);
+            }
           }
         } else {
           // Check for existing borradores
           const borradores = await obtenerBorradores();
           if (borradores.length > 0) {
-            // Load the most recent borrador
             const ultimo = borradores[0];
             setVivienda(ultimo);
             const nextFase =
@@ -61,7 +75,7 @@ export default function PublicarViviendaPage() {
     }
 
     cargar();
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // ── Phase completion handlers ──
 
@@ -92,11 +106,13 @@ export default function PublicarViviendaPage() {
 
   const handleFaseClick = useCallback(
     (fase: number) => {
+      // In verification mode, only fase 5 is accessible
+      if (modoVerificacion) return;
       if (fase < faseActual) {
         setFaseActual(fase);
       }
     },
-    [faseActual],
+    [faseActual, modoVerificacion],
   );
 
   // ── Loading states ──
@@ -124,17 +140,21 @@ export default function PublicarViviendaPage() {
     <div className="p-8 max-w-3xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">
-          Publicar vivienda
+          {modoVerificacion ? "Verificar vivienda" : "Publicar vivienda"}
         </h1>
         <p className="text-slate-500 mt-1">
-          Completá los 5 pasos para publicar tu propiedad
+          {modoVerificacion
+            ? "Completá la verificación SafeRent para tu vivienda"
+            : "Completá los 5 pasos para publicar tu propiedad"}
         </p>
       </div>
 
-      <PublicarStepper
-        faseActual={faseActual}
-        onFaseClick={handleFaseClick}
-      />
+      {!modoVerificacion && (
+        <PublicarStepper
+          faseActual={faseActual}
+          onFaseClick={handleFaseClick}
+        />
+      )}
 
       {/* ── Phase 1: Nombre ── */}
       {faseActual === 1 && (

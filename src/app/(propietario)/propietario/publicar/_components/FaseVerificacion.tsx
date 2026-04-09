@@ -18,9 +18,10 @@ import {
 import {
   guardarFase,
   obtenerUrlNotaSimple,
-  publicarViviendaFinal,
+  verificarVivienda,
   type Vivienda,
 } from "@/lib/viviendas";
+import { usePropietario } from "@/context/PropietarioContext";
 
 interface FaseVerificacionProps {
   viviendaId: string;
@@ -34,13 +35,13 @@ export default function FaseVerificacion({
   onPublicar,
 }: FaseVerificacionProps) {
   const router = useRouter();
+  const { recargar } = usePropietario();
   const [notaSimpleUrl, setNotaSimpleUrl] = useState<string | null>(
     vivienda.nota_simple_url ?? null,
   );
   const [subiendo, setSubiendo] = useState(false);
-  const [publicando, setPublicando] = useState(false);
+  const [verificando, setVerificando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [camposFaltantes, setCamposFaltantes] = useState<string[]>([]);
 
   async function handleSubirNotaSimple(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -78,35 +79,19 @@ export default function FaseVerificacion({
     }
   }
 
-  async function handlePublicar() {
+  async function handleVerificar() {
     setError(null);
-    setCamposFaltantes([]);
-    setPublicando(true);
+    setVerificando(true);
 
     try {
-      await publicarViviendaFinal(viviendaId);
+      await verificarVivienda(viviendaId);
+      await recargar();
       onPublicar();
-      router.push("/propietario?publicada=true");
+      router.push("/propietario");
     } catch (e) {
-      if (e instanceof Error) {
-        // Try to parse camposFaltantes from the error
-        try {
-          const parsed = JSON.parse(e.message);
-          if (parsed.camposFaltantes) {
-            setCamposFaltantes(parsed.camposFaltantes);
-            setError("Faltan campos obligatorios por completar:");
-            setPublicando(false);
-            return;
-          }
-        } catch {
-          // Not JSON, use as-is
-        }
-        setError(e.message);
-      } else {
-        setError("Error al publicar la vivienda");
-      }
+      setError(e instanceof Error ? e.message : "Error al verificar la vivienda");
     } finally {
-      setPublicando(false);
+      setVerificando(false);
     }
   }
 
@@ -114,23 +99,21 @@ export default function FaseVerificacion({
     <Card className="ring-1 ring-slate-200 shadow-sm border-0">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Send className="h-5 w-5 text-indigo-600" /> Revisar y publicar
+          <Send className="h-5 w-5 text-indigo-600" /> Verificación SafeRent
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="flex items-start gap-2 bg-emerald-50 ring-1 ring-emerald-200 rounded-xl px-4 py-3">
+          <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-emerald-700">
+            ¡Tu vivienda ya está publicada y visible para los inquilinos! Subí la nota simple para obtener el sello de verificación SafeRent y generar más confianza.
+          </p>
+        </div>
+
         {error && (
           <div className="flex items-start gap-2 bg-rose-50 ring-1 ring-rose-200 rounded-xl px-4 py-3">
             <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-rose-700">{error}</p>
-              {camposFaltantes.length > 0 && (
-                <ul className="text-sm text-rose-600 mt-1 list-disc list-inside">
-                  {camposFaltantes.map((campo) => (
-                    <li key={campo}>{campo}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <p className="text-sm text-rose-700">{error}</p>
           </div>
         )}
 
@@ -274,8 +257,7 @@ export default function FaseVerificacion({
           <div className="flex items-start gap-2 bg-indigo-50 ring-1 ring-indigo-200 rounded-xl px-4 py-3">
             <Info className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
             <p className="text-xs text-indigo-700">
-              La nota simple es opcional pero recomendada. Sin ella, la vivienda
-              se publicará como no verificada.
+              La nota simple acredita la titularidad del inmueble. Con ella, tu vivienda mostrará el sello "Verificada SafeRent" y aparecerá en los resultados filtrados por verificación.
             </p>
           </div>
 
@@ -313,21 +295,31 @@ export default function FaseVerificacion({
           )}
         </div>
 
-        {/* ── Publish button ── */}
+        {/* ── Verify button ── */}
         <Button
-          onClick={handlePublicar}
-          disabled={publicando}
-          className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+          onClick={handleVerificar}
+          disabled={verificando || !notaSimpleUrl}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50"
         >
-          {publicando ? (
+          {verificando ? (
             <>
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Publicando...
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Verificando...
             </>
           ) : (
             <>
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Publicar vivienda
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> Obtener verificación SafeRent
             </>
           )}
+        </Button>
+        {!notaSimpleUrl && (
+          <p className="text-xs text-center text-slate-400">Subí la nota simple para habilitar la verificación</p>
+        )}
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => router.push("/propietario")}
+        >
+          Ir al dashboard
         </Button>
       </CardContent>
     </Card>

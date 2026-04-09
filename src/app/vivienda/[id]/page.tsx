@@ -79,9 +79,15 @@ export default async function FichaVivienda({ params }: { params: Promise<{ id: 
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-emerald-200">
-                      <Shield className="h-3.5 w-3.5" /> Vivienda verificada
-                    </span>
+                    {vivienda.verificada ? (
+                      <span className="flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 ring-emerald-200">
+                        <Shield className="h-3.5 w-3.5" /> Vivienda verificada
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 bg-slate-100 text-slate-500 text-xs font-medium px-2.5 py-1 rounded-full ring-1 ring-slate-200">
+                        Sin verificar
+                      </span>
+                    )}
                     {vivienda.motivos.map((m: string) => (
                       <span key={m} className="flex items-center gap-1 bg-indigo-50 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full ring-1 ring-indigo-200">
                         {m}

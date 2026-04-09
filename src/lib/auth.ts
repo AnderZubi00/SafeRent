@@ -12,6 +12,8 @@ export interface UsuarioAuth {
   nombre_kyc?: string;
   apellidos_kyc?: string;
   tipo_documento?: string;
+  stripe_account_id?: string | null;
+  stripe_onboarding_complete?: boolean;
 }
 
 export function rutaSegunRol(rol: Rol): string {

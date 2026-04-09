@@ -61,8 +61,7 @@ function BuscarContent() {
   const [precioMin, setPrecioMin] = useState("");
   const [precioMax, setPrecioMax] = useState("");
   const [habFiltro, setHabFiltro] = useState(0); // 0 = todas
-  // El campo verificada lo gestionará un admin en el futuro; por ahora se muestran todas las viviendas activas
-  const soloVerificadas = false;
+  const [soloVerificadas, setSoloVerificadas] = useState(false);
   const [ordenFiltro, setOrdenFiltro] = useState("recientes");
 
   const cargarViviendas = useCallback(async () => {
@@ -79,11 +78,12 @@ function BuscarContent() {
       precioMin: precioMin ? Number(precioMin) : undefined,
       precioMax: precioMax ? Number(precioMax) : undefined,
       habitaciones: habFiltro,
+      soloVerificadas: soloVerificadas || undefined,
     });
     setCargando(false);
     if (error) { setErrorMsg(error); return; }
     setViviendas(data);
-  }, [provinciaFiltro, ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro]);
+  }, [provinciaFiltro, ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro, soloVerificadas]);
 
   useEffect(() => {
     cargarViviendas();
@@ -117,6 +117,7 @@ function BuscarContent() {
   if (precioMin) filtrosActivos.push({ label: `Desde ${precioMin}€`, remove: () => setPrecioMin("") });
   if (precioMax) filtrosActivos.push({ label: `Hasta ${precioMax}€`, remove: () => setPrecioMax("") });
   if (habFiltro > 0) filtrosActivos.push({ label: `${habFiltro}+ hab.`, remove: () => setHabFiltro(0) });
+  if (soloVerificadas) filtrosActivos.push({ label: "Solo verificadas", remove: () => setSoloVerificadas(false) });
 
   function resetFiltros() {
     setProvinciaFiltro("todas");
@@ -126,6 +127,7 @@ function BuscarContent() {
     setPrecioMax("");
     setHabFiltro(0);
     setBusqueda("");
+    setSoloVerificadas(false);
   }
 
   return (
@@ -220,16 +222,25 @@ function BuscarContent() {
                 </button>
               </div>
 
-              {/* Banner verificación — siempre activo */}
-              <div className="mx-4 mt-4 flex items-center gap-2.5 bg-emerald-50 ring-1 ring-emerald-200 rounded-xl px-3.5 py-3">
-                <div className="h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                  <Shield className="h-3.5 w-3.5 text-white" />
+              {/* Toggle verificadas */}
+              <button
+                onClick={() => setSoloVerificadas(!soloVerificadas)}
+                className={`mx-4 mt-4 flex items-center gap-2.5 rounded-xl px-3.5 py-3 w-[calc(100%-2rem)] transition-all ${
+                  soloVerificadas
+                    ? "bg-emerald-500 ring-1 ring-emerald-500"
+                    : "bg-emerald-50 ring-1 ring-emerald-200 hover:bg-emerald-100"
+                }`}
+              >
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center shrink-0 ${soloVerificadas ? "bg-white" : "bg-emerald-500"}`}>
+                  <Shield className={`h-3.5 w-3.5 ${soloVerificadas ? "text-emerald-600" : "text-white"}`} />
                 </div>
-                <div>
-                  <p className="text-xs font-semibold text-emerald-800">100% verificadas</p>
-                  <p className="text-[10px] text-emerald-600 leading-tight mt-0.5">Todas las viviendas han pasado el control de documentación</p>
+                <div className="text-left">
+                  <p className={`text-xs font-semibold ${soloVerificadas ? "text-white" : "text-emerald-800"}`}>Solo verificadas</p>
+                  <p className={`text-[10px] leading-tight mt-0.5 ${soloVerificadas ? "text-emerald-100" : "text-emerald-600"}`}>
+                    {soloVerificadas ? "Activo — mostrando verificadas" : "Ver solo con sello SafeRent"}
+                  </p>
                 </div>
-              </div>
+              </button>
 
               <div className="p-5 space-y-5">
                 {/* Precio */}
@@ -322,7 +333,7 @@ function BuscarContent() {
                     `${viviendasFiltradas.length} vivienda${viviendasFiltradas.length !== 1 ? "s" : ""} disponible${viviendasFiltradas.length !== 1 ? "s" : ""}`
                   )}
                 </h1>
-                <p className="text-sm text-slate-500 mt-0.5">Alquileres temporales verificados</p>
+                <p className="text-sm text-slate-500 mt-0.5">Alquileres temporales{soloVerificadas ? " verificados" : ""}</p>
               </div>
               <div className="flex items-center gap-3">
                 <select
@@ -415,11 +426,17 @@ function BuscarContent() {
                           </>
                         )}
 
-                        {/* Badge verificada — todas las viviendas de la plataforma están verificadas */}
+                        {/* Badge verificación */}
                         <div className="absolute top-3 left-3 flex gap-2">
-                          <span className="flex items-center gap-1 bg-white/95 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ring-1 ring-emerald-200/50">
-                            <Shield className="h-3 w-3" /> Verificada
-                          </span>
+                          {v.verificada ? (
+                            <span className="flex items-center gap-1 bg-white/95 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm ring-1 ring-emerald-200/50">
+                              <Shield className="h-3 w-3" /> Verificada SafeRent
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 bg-white/80 backdrop-blur-sm text-slate-500 text-[10px] font-medium px-2.5 py-1 rounded-full shadow-sm ring-1 ring-slate-200/50">
+                              Sin verificar
+                            </span>
+                          )}
                         </div>
 
                         {/* Badge nueva */}

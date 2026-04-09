@@ -39,7 +39,7 @@ import {
   firmarContrato,
   obtenerContratoBySolicitud,
 } from "@/lib/contratos";
-import { crearPaymentIntent } from "@/lib/pagos";
+import { crearPaymentIntent, obtenerFeePreview } from "@/lib/pagos";
 import SignatureCanvas from "react-signature-canvas";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
@@ -163,11 +163,12 @@ function CheckoutContent() {
   const [procesandoPago, setProcesandoPago] = useState(false);
   const [pagoCompletado, setPagoCompletado] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [feePreview, setFeePreview] = useState<{ guestFeePct: number; guestFee: number } | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [cargandoEstado, setCargandoEstado] = useState(!!solicitudIdParam);
 
-  // Load vivienda data
+  // Load vivienda data + fee preview
   useEffect(() => {
     if (!viviendaId) {
       setCargandoVivienda(false);
@@ -177,6 +178,10 @@ function CheckoutContent() {
       const { data } = await obtenerViviendaById(viviendaId);
       setVivienda(data);
       setCargandoVivienda(false);
+      if (data) {
+        const { data: fee } = await obtenerFeePreview(data.precio_mes);
+        if (fee) setFeePreview({ guestFeePct: fee.guestFeePct, guestFee: fee.guestFee });
+      }
     }
     cargar();
   }, [viviendaId]);
@@ -377,13 +382,12 @@ function CheckoutContent() {
     setError(null);
     setProcesandoPago(true);
 
-    const total = vivienda.precio_mes + vivienda.fianza_importe + Math.round(vivienda.precio_mes * 0.03 * 100) / 100;
-
     const { data, error: err } = await crearPaymentIntent({
       solicitud_id: solicitudId,
       vivienda_id: vivienda.id,
       concepto: "reserva_completa",
-      importe: total,
+      importe: vivienda.precio_mes,
+      fianza_importe: vivienda.fianza_importe,
     });
 
     if (err || !data) {
@@ -407,7 +411,8 @@ function CheckoutContent() {
     if (!vivienda) return 0;
     const meses = calcularMeses();
     const renta = vivienda.precio_mes * meses;
-    const comision = renta * 0.03;
+    const feePct = (feePreview?.guestFeePct ?? 5) / 100;
+    const comision = Math.round(renta * feePct * 100) / 100;
     return renta + vivienda.fianza_importe + comision;
   }
 
@@ -878,12 +883,12 @@ function CheckoutContent() {
                             <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
                           </div>
                           <div className="flex justify-between py-1.5 border-b border-slate-200">
-                            <span className="text-slate-600">Comisión SafeRent (3%)</span>
-                            <span className="font-medium">{(vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€</span>
+                            <span className="text-slate-600">Comisión SafeRent ({feePreview?.guestFeePct ?? 5}%)</span>
+                            <span className="font-medium">{(feePreview?.guestFee ?? Math.round(vivienda.precio_mes * 0.05 * 100) / 100).toLocaleString("es-ES")}€</span>
                           </div>
                           <div className="flex justify-between py-2 font-bold text-slate-900 text-base">
                             <span>Total a pagar</span>
-                            <span>{(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES")}€</span>
+                            <span>{(vivienda.precio_mes + vivienda.fianza_importe + (feePreview?.guestFee ?? Math.round(vivienda.precio_mes * 0.05 * 100) / 100)).toLocaleString("es-ES")}€</span>
                           </div>
                         </div>
 
@@ -964,8 +969,8 @@ function CheckoutContent() {
                     <span className="font-medium">{vivienda.fianza_importe.toLocaleString("es-ES")}€</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Comisión (3%)</span>
-                    <span className="font-medium">{(vivienda.precio_mes * Math.max(1, calcularMeses()) * 0.03).toLocaleString("es-ES")}€</span>
+                    <span className="text-slate-600">Comisión SafeRent ({feePreview?.guestFeePct ?? 5}%)</span>
+                    <span className="font-medium">{(vivienda.precio_mes * Math.max(1, calcularMeses()) * ((feePreview?.guestFeePct ?? 5) / 100)).toLocaleString("es-ES", { maximumFractionDigits: 2 })}€</span>
                   </div>
                 </div>
 
@@ -973,7 +978,7 @@ function CheckoutContent() {
 
                 <div className="flex justify-between font-bold text-slate-900">
                   <span>Total</span>
-                  <span>{calcularMeses() > 0 ? `${calcularTotal().toLocaleString("es-ES")}€` : `${(vivienda.precio_mes + vivienda.fianza_importe + vivienda.precio_mes * 0.03).toLocaleString("es-ES", { maximumFractionDigits: 2 })}€`}</span>
+                  <span>{calcularTotal().toLocaleString("es-ES", { maximumFractionDigits: 2 })}€</span>
                 </div>
 
                 <div className="bg-amber-50 ring-1 ring-amber-200 rounded-lg p-2.5 text-center">
