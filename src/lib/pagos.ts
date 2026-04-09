@@ -25,6 +25,7 @@ export interface RegistrarPagoInput {
   vivienda_id: string;
   concepto: string;
   importe: number;
+  fianza_importe?: number;
   metodo?: string;
 }
 
