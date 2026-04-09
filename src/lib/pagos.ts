@@ -45,8 +45,8 @@ export async function obtenerPagosInquilino(): Promise<{
   error: string | null;
 }> {
   try {
-    const data = await api.get<Pago[]>("/pagos/inquilino");
-    return { data, error: null };
+    const res = await api.get<{ data: Pago[] }>("/pagos/inquilino");
+    return { data: res.data, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };
   }
@@ -70,8 +70,8 @@ export async function obtenerPagosPropietario(): Promise<{
   error: string | null;
 }> {
   try {
-    const data = await api.get<PagoPropietario[]>("/pagos/propietario");
-    return { data, error: null };
+    const res = await api.get<{ data: PagoPropietario[] }>("/pagos/propietario");
+    return { data: res.data, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };
   }

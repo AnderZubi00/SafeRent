@@ -101,9 +101,9 @@ export async function obtenerSolicitudesPropietario(): Promise<{
   error: string | null;
 }> {
   try {
-    const data = await api.get<Solicitud[]>("/solicitudes/propietario");
+    const res = await api.get<{ data: Solicitud[] }>("/solicitudes/propietario");
     // Map backend field names to frontend aliases for backward compatibility
-    const mapped = data.map((s) => ({
+    const mapped = res.data.map((s) => ({
       ...s,
       viviendas: s.vivienda,
       usuarios: s.inquilino,
@@ -196,8 +196,8 @@ export async function obtenerSolicitudesInquilino(): Promise<{
   error: string | null;
 }> {
   try {
-    const data = await api.get<Solicitud[]>("/solicitudes/inquilino");
-    const mapped = data.map((s) => ({ ...s, viviendas: s.vivienda }));
+    const res = await api.get<{ data: Solicitud[] }>("/solicitudes/inquilino");
+    const mapped = res.data.map((s) => ({ ...s, viviendas: s.vivienda }));
     return { data: mapped, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };

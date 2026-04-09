@@ -144,8 +144,8 @@ export async function obtenerViviendas(
     if (filtros?.soloVerificadas === true) params.set("soloVerificadas", "true");
 
     const query = params.toString();
-    const data = await api.get<Vivienda[]>(`/viviendas${query ? `?${query}` : ""}`);
-    return { data, error: null };
+    const res = await api.get<{ data: Vivienda[] }>(`/viviendas${query ? `?${query}` : ""}`);
+    return { data: res.data, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error al obtener viviendas" };
   }
@@ -212,8 +212,8 @@ export async function obtenerMisViviendas(): Promise<{
   error: string | null;
 }> {
   try {
-    const data = await api.get<Vivienda[]>("/viviendas/mis-viviendas");
-    return { data, error: null };
+    const res = await api.get<{ data: Vivienda[] }>("/viviendas/mis-viviendas");
+    return { data: res.data, error: null };
   } catch (e) {
     return { data: [], error: e instanceof Error ? e.message : "Error" };
   }
@@ -239,7 +239,8 @@ export async function guardarFase(
 
 /** Get all user's borradores */
 export async function obtenerBorradores(): Promise<Vivienda[]> {
-  return api.get<Vivienda[]>("/viviendas/borradores");
+  const res = await api.get<{ data: Vivienda[] }>("/viviendas/borradores");
+  return res.data;
 }
 
 /** Publish a vivienda (validates all fields server-side) */
