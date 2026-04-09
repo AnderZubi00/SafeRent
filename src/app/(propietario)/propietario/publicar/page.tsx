@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -17,7 +17,7 @@ import FaseDetalles from "./_components/FaseDetalles";
 import FasePrecio from "./_components/FasePrecio";
 import FaseVerificacion from "./_components/FaseVerificacion";
 
-export default function PublicarViviendaPage() {
+function PublicarViviendaContent() {
   const searchParams = useSearchParams();
   const { usuario, cargando: cargandoAuth } = useAuth();
 
@@ -196,5 +196,18 @@ export default function PublicarViviendaPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function PublicarViviendaPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-8 max-w-3xl mx-auto flex flex-col items-center gap-3 py-20">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+        <p className="text-sm text-slate-500">Cargando...</p>
+      </div>
+    }>
+      <PublicarViviendaContent />
+    </Suspense>
   );
 }
