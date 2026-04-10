@@ -62,6 +62,10 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect");
+  const safeRedirect =
+    redirectUrl?.startsWith('/') && !redirectUrl.startsWith('//')
+      ? redirectUrl
+      : '/';
   const { setUsuario } = useAuth();
   const [tab, setTab] = useState<Tab>("login");
   const [showPassword, setShowPassword] = useState(false);
@@ -87,7 +91,7 @@ function LoginContent() {
     try {
       const usuario = await loginConSupabase(loginForm.email, loginForm.password);
       setUsuario(usuario);
-      router.push(redirectUrl ?? rutaSegunRol(usuario.rol));
+      router.push(safeRedirect !== '/' ? safeRedirect : rutaSegunRol(usuario.rol));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {
@@ -115,7 +119,7 @@ function LoginContent() {
         registerForm.rol
       );
       setUsuario(usuario);
-      router.push(redirectUrl ?? rutaSegunRol(usuario.rol));
+      router.push(safeRedirect !== '/' ? safeRedirect : rutaSegunRol(usuario.rol));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear la cuenta");
     } finally {
