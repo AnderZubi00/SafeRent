@@ -49,8 +49,17 @@ export default function FaseKyc({ onComplete, usuario }: FaseKycProps) {
     }
   }
 
+  // Verificación real: flag true AND datos completos.
+  // Protege contra estados inconsistentes (flag=true con campos null por seeds/migraciones viejas).
+  const kycCompleto = Boolean(
+    usuario.verificado_kyc &&
+      usuario.nombre_kyc &&
+      usuario.apellidos_kyc &&
+      usuario.tipo_documento
+  );
+
   // Already verified
-  if (usuario.verificado_kyc && !mostrarKyc) {
+  if (kycCompleto && !mostrarKyc) {
     return (
       <Card className="ring-1 ring-slate-200 shadow-sm border-0">
         <CardHeader>
@@ -113,7 +122,7 @@ export default function FaseKyc({ onComplete, usuario }: FaseKycProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        {!usuario.verificado_kyc && (
+        {!kycCompleto && (
           <div className="bg-amber-50 ring-1 ring-amber-200 rounded-xl px-4 py-3">
             <p className="text-sm text-amber-800">
               Para publicar una vivienda, necesitás verificar tu identidad
@@ -135,7 +144,7 @@ export default function FaseKyc({ onComplete, usuario }: FaseKycProps) {
 
         {error && <p className="text-sm text-rose-600">{error}</p>}
 
-        {mostrarKyc && usuario.verificado_kyc && (
+        {mostrarKyc && kycCompleto && (
           <button
             type="button"
             onClick={() => setMostrarKyc(false)}
