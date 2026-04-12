@@ -24,8 +24,8 @@ import {
   PenTool,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/context/AuthContext";
-import { useInquilino, type SolicitudConContrato } from "@/context/InquilinoContext";
+import { useAuth } from "@/store/authStore";
+import { useInquilino, type SolicitudConContrato } from "@/store/inquilinoStore";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", {

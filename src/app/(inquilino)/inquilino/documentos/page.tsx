@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import {
   useInquilino,
   type DocumentoInquilino,
-} from "@/context/InquilinoContext";
+} from "@/store/inquilinoStore";
 
 const ESTADO_CONFIG = {
   firmado: {

@@ -11,7 +11,7 @@ import {
   Loader2, Inbox, Building2, User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePropietario } from "@/context/PropietarioContext";
+import { usePropietario } from "@/store/propietarioStore";
 
 const COMISION_RATE = 0.03;
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import { ArrowRight, AlertCircle } from "lucide-react";
 
 interface BotonReservarProps {

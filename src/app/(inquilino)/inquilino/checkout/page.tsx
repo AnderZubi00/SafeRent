@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { KycMobilePanel } from "@/components/kyc/KycMobilePanel";
 import { KycResultBadge } from "@/components/kyc/KycResultBadge";
 import type { KycMobileResultado } from "@/hooks/useKycMobileSession";
-import { useInquilino } from "@/context/InquilinoContext";
+import { useInquilino } from "@/store/inquilinoStore";
 import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
 import {
   crearSolicitud,

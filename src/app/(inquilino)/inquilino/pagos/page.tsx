@@ -23,7 +23,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useInquilino } from "@/context/InquilinoContext";
+import { useInquilino } from "@/store/inquilinoStore";
 import type { Pago } from "@/lib/pagos";
 
 const CONCEPTO_LABELS: Record<string, { label: string; desc: string }> = {

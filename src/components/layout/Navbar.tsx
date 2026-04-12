@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Shield, Search, Menu, X, Building2, Users, LayoutDashboard, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import { rutaSegunRol } from "@/lib/auth";
 
 export function Navbar({ transparent = false }: { transparent?: boolean }) {

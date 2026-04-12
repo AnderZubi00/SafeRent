@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Sidebar, type Rol } from "@/components/layout/Sidebar";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import { contarSolicitudesPendientes } from "@/lib/solicitudes";
 
 interface SidebarWrapperProps {

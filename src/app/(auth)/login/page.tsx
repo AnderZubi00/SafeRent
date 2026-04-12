@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { loginConSupabase, registrarConSupabase, rutaSegunRol, type Rol } from "@/lib/auth";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 type Tab = "login" | "register";
 

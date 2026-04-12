@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 export type Rol = "inquilino" | "propietario" | "admin";
 

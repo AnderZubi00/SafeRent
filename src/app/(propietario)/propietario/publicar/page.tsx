@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 import {
   obtenerViviendaById,
   obtenerBorradores,

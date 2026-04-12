@@ -1,10 +1,11 @@
 import { SidebarWrapper } from "@/components/layout/SidebarWrapper";
 import { TopBar } from "@/components/layout/TopBar";
-import { PropietarioProvider } from "@/context/PropietarioContext";
+import { PropietarioInit } from "@/components/init/PropietarioInit";
 
 export default function PropietarioLayout({ children }: { children: React.ReactNode }) {
   return (
-    <PropietarioProvider>
+    <>
+      <PropietarioInit />
       <div className="flex h-screen bg-slate-50 overflow-hidden">
         <SidebarWrapper role="propietario" />
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -18,6 +19,6 @@ export default function PropietarioLayout({ children }: { children: React.ReactN
           </main>
         </div>
       </div>
-    </PropietarioProvider>
+    </>
   );
 }

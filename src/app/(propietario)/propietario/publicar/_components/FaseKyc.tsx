@@ -8,7 +8,7 @@ import { KycMobilePanel } from "@/components/kyc/KycMobilePanel";
 import type { KycMobileResultado } from "@/hooks/useKycMobileSession";
 import { completarKycPropietario } from "@/lib/kyc";
 import { obtenerUsuarioActual, type UsuarioAuth } from "@/lib/auth";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth } from "@/store/authStore";
 
 interface FaseKycProps {
   onComplete: () => void;

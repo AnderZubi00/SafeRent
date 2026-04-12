@@ -1,22 +1,11 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { create } from "zustand";
 import {
   obtenerSolicitudesInquilino,
   type Solicitud,
 } from "@/lib/solicitudes";
-import {
-  obtenerPagosInquilino,
-  type Pago,
-} from "@/lib/pagos";
+import { obtenerPagosInquilino, type Pago } from "@/lib/pagos";
 import { obtenerContratoBySolicitud } from "@/lib/contratos";
 import { useAuthStore } from "@/store/authStore";
 
@@ -51,18 +40,14 @@ interface InquilinoState {
   documentos: DocumentoInquilino[];
   pagos: Pago[];
   cargando: boolean;
+  cargar: () => Promise<void>;
   recargar: () => Promise<void>;
+  reset: () => void;
 }
 
-const InquilinoContext = createContext<InquilinoState>({
-  solicitudes: [],
-  documentos: [],
-  pagos: [],
-  cargando: true,
-  recargar: async () => {},
-});
-
-function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquilino[] {
+function derivarDocumentos(
+  solicitudes: SolicitudConContrato[]
+): DocumentoInquilino[] {
   const docs: DocumentoInquilino[] = [];
 
   for (const sol of solicitudes) {
@@ -70,10 +55,10 @@ function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquil
     const viviendaCiudad = sol.vivienda?.ciudad ?? "";
     const estadoDoc =
       sol.estado === "RECHAZADA"
-        ? "rechazado" as const
+        ? ("rechazado" as const)
         : sol.estado === "ACEPTADA"
-          ? "verificado" as const
-          : "pendiente" as const;
+          ? ("verificado" as const)
+          : ("pendiente" as const);
 
     if (sol.documento_identidad_url) {
       docs.push({
@@ -112,7 +97,8 @@ function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquil
     }
 
     if (sol.contrato?.pdf_borrador_url) {
-      const firmadoAmbos = sol.contrato.firmado_propietario && sol.contrato.firmado_inquilino;
+      const firmadoAmbos =
+        sol.contrato.firmado_propietario && sol.contrato.firmado_inquilino;
       docs.push({
         id: `contrato-${sol.id}`,
         tipo: "contrato",
@@ -130,15 +116,23 @@ function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquil
   return docs;
 }
 
-export function InquilinoProvider({ children }: { children: ReactNode }) {
-  const { usuario, cargando: authCargando } = useAuthStore();
-  const [solicitudes, setSolicitudes] = useState<SolicitudConContrato[]>([]);
-  const [documentos, setDocumentos] = useState<DocumentoInquilino[]>([]);
-  const [pagos, setPagos] = useState<Pago[]>([]);
-  const [cargando, setCargando] = useState(true);
+const initialState = {
+  solicitudes: [] as SolicitudConContrato[],
+  documentos: [] as DocumentoInquilino[],
+  pagos: [] as Pago[],
+  cargando: true,
+};
 
-  const cargar = useCallback(async () => {
-    setCargando(true);
+// Flag module-level para deduplicar cargas concurrentes (StrictMode double-invoke)
+let _cargarRunning = false;
+
+export const useInquilinoStore = create<InquilinoState>((set, get) => ({
+  ...initialState,
+
+  cargar: async () => {
+    if (_cargarRunning) return;
+    _cargarRunning = true;
+    set({ cargando: true });
     try {
       const [solResult, pagosResult] = await Promise.all([
         obtenerSolicitudesInquilino(),
@@ -146,7 +140,6 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
       ]);
 
       const conContratos: SolicitudConContrato[] = [];
-
       for (const sol of solResult.data) {
         let contrato: ContratoResumen | null = null;
         if (sol.estado === "ACEPTADA") {
@@ -156,34 +149,45 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
         conContratos.push({ ...sol, contrato });
       }
 
-      setSolicitudes(conContratos);
-      setDocumentos(derivarDocumentos(conContratos));
-      setPagos(pagosResult.data);
+      set({
+        solicitudes: conContratos,
+        documentos: derivarDocumentos(conContratos),
+        pagos: pagosResult.data,
+        cargando: false,
+      });
     } catch (err) {
       console.error("Error cargando datos del inquilino:", err);
+      set({ cargando: false });
     } finally {
-      setCargando(false);
+      _cargarRunning = false;
     }
-  }, []);
+  },
 
-  useEffect(() => {
-    if (!authCargando && usuario) {
-      cargar();
-    }
-  }, [cargar, authCargando, usuario]);
+  recargar: async () => {
+    await get().cargar();
+  },
 
-  const value = useMemo<InquilinoState>(
-    () => ({ solicitudes, documentos, pagos, cargando, recargar: cargar }),
-    [solicitudes, documentos, pagos, cargando, cargar]
-  );
+  reset: () => set(initialState),
+}));
 
-  return (
-    <InquilinoContext.Provider value={value}>
-      {children}
-    </InquilinoContext.Provider>
-  );
-}
-
+/** Hook de compatibilidad — mismo shape que el antiguo InquilinoContext. */
 export function useInquilino() {
-  return useContext(InquilinoContext);
+  const state = useInquilinoStore();
+  return {
+    solicitudes: state.solicitudes,
+    documentos: state.documentos,
+    pagos: state.pagos,
+    cargando: state.cargando,
+    recargar: state.recargar,
+  };
 }
+
+// Reset automático en signout: cuando usuario pasa a null, limpiamos el store.
+let _prevUsuario: ReturnType<typeof useAuthStore.getState>["usuario"] =
+  useAuthStore.getState().usuario;
+useAuthStore.subscribe((state) => {
+  if (_prevUsuario && state.usuario === null) {
+    useInquilinoStore.getState().reset();
+  }
+  _prevUsuario = state.usuario;
+});

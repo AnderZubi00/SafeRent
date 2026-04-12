@@ -33,7 +33,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePropietario, type SolicitudConContrato } from "@/context/PropietarioContext";
+import { usePropietario, type SolicitudConContrato } from "@/store/propietarioStore";
 import ToggleActivaButton from "../../_components/ToggleActivaButton";
 import type { PagoPropietario } from "@/lib/pagos";
 

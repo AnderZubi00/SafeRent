@@ -21,7 +21,7 @@ import {
   verificarVivienda,
   type Vivienda,
 } from "@/lib/viviendas";
-import { usePropietario } from "@/context/PropietarioContext";
+import { usePropietario } from "@/store/propietarioStore";
 
 interface FaseVerificacionProps {
   viviendaId: string;

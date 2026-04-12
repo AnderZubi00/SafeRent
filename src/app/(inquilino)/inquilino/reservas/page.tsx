@@ -24,7 +24,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useInquilino, type SolicitudConContrato } from "@/context/InquilinoContext";
+import { useInquilino, type SolicitudConContrato } from "@/store/inquilinoStore";
 import type { Pago } from "@/lib/pagos";
 
 const PASO_LABELS = ["Identidad", "Temporalidad", "Contrato", "Pago"];

@@ -46,9 +46,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   _init: () => {
     const supabase = createClient();
 
-    async function cargarPerfil() {
+    /**
+     * @param markRetryIfRunning - true solo para eventos de Supabase (SIGNED_IN,
+     * TOKEN_REFRESHED) donde un token fresco justifica un reintento al terminar.
+     * false para llamadas directas (init, StrictMode double-mount) — ahí queremos
+     * dedupear silenciosamente sin gatillar otro ciclo.
+     */
+    async function cargarPerfil(markRetryIfRunning = false) {
       if (_cargarPerfilRunning) {
-        _cargarPerfilRetryNeeded = true;
+        if (markRetryIfRunning) _cargarPerfilRetryNeeded = true;
         return;
       }
       _cargarPerfilRunning = true;
@@ -115,7 +121,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
         if (!get().usuario) {
-          cargarPerfil();
+          // markRetryIfRunning=true: si llega un token fresco mientras corre
+          // un cargarPerfil con el viejo, reintentamos al terminar.
+          cargarPerfil(true);
         }
       }
     });
@@ -123,3 +131,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return () => subscription.unsubscribe();
   },
 }));
+
+/** Hook de autenticación — alias de useAuthStore para compatibilidad con consumers. */
+export const useAuth = () => useAuthStore();

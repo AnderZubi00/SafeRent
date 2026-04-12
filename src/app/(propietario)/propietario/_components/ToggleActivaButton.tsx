@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { toggleActivaVivienda } from "../actions";
-import { usePropietario } from "@/context/PropietarioContext";
+import { usePropietario } from "@/store/propietarioStore";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 interface Props {

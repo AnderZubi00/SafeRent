@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import {
   usePropietario,
   type SolicitudConContrato,
-} from "@/context/PropietarioContext";
+} from "@/store/propietarioStore";
 import {
   aceptarSolicitudAction,
   rechazarSolicitudAction,

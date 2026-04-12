@@ -13,7 +13,7 @@ import {
   ShieldCheck, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePropietario, type SolicitudConContrato } from "@/context/PropietarioContext";
+import { usePropietario, type SolicitudConContrato } from "@/store/propietarioStore";
 
 function estadoContrato(s: SolicitudConContrato) {
   if (!s.contrato) return { label: "Sin contrato", cls: "bg-slate-100 text-slate-500", key: "none" };

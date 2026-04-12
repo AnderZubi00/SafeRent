@@ -14,8 +14,8 @@ import {
   FileEdit, Trash2, CreditCard, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePropietario } from "@/context/PropietarioContext";
-import { useAuth } from "@/context/AuthContext";
+import { usePropietario } from "@/store/propietarioStore";
+import { useAuth } from "@/store/authStore";
 import { mockStripeConnect } from "@/lib/stripe-connect";
 import ToggleActivaButton from "./_components/ToggleActivaButton";
 import { obtenerBorradores, eliminarBorrador } from "@/lib/viviendas";
