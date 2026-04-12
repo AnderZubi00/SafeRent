@@ -5,7 +5,20 @@ import {
   reautenticarConSesionActual,
   type UsuarioAuth,
 } from "@/lib/auth";
-import { clearBackendToken } from "@/lib/api";
+import { clearBackendToken, ApiError } from "@/lib/api";
+
+/**
+ * Control de concurrencia para cargarPerfil().
+ *
+ * _running: impide ejecuciones simultáneas (StrictMode, múltiples eventos).
+ * _retryNeeded: si un evento llega mientras corre, se reintenta al terminar.
+ *
+ * Esto resuelve el caso crítico donde Supabase dispara TOKEN_REFRESHED
+ * con un token fresco MIENTRAS cargarPerfil() está fallando con el token viejo.
+ * Sin retry, el token fresco se pierde y el usuario queda sin sesión.
+ */
+let _cargarPerfilRunning = false;
+let _cargarPerfilRetryNeeded = false;
 
 interface AuthState {
   /** undefined = cargando, null = sin sesión, UsuarioAuth = logueado */
@@ -17,7 +30,7 @@ interface AuthState {
   _init: () => () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   usuario: undefined,
   cargando: true,
 
@@ -34,40 +47,63 @@ export const useAuthStore = create<AuthState>((set) => ({
     const supabase = createClient();
 
     async function cargarPerfil() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session) {
-        clearBackendToken();
-        set({ usuario: null, cargando: false });
+      if (_cargarPerfilRunning) {
+        _cargarPerfilRetryNeeded = true;
         return;
       }
+      _cargarPerfilRunning = true;
+      _cargarPerfilRetryNeeded = false;
 
-      // Intenta obtener el perfil usando la cookie HttpOnly (si existe y es válida)
       try {
-        const usuario = await obtenerUsuarioActual();
-        if (usuario) {
-          set({ usuario, cargando: false });
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session) {
+          clearBackendToken();
+          set({ usuario: null, cargando: false });
           return;
         }
-      } catch {
-        // Cookie expirada o inexistente — continúa al re-exchange
-      }
 
-      // Re-intercambia el token de Supabase por un JWT fresco del backend
-      try {
-        const usuario = await reautenticarConSesionActual();
-        set({ usuario: usuario ?? null, cargando: false });
-      } catch {
-        clearBackendToken();
-        set({ usuario: null, cargando: false });
+        // Intenta obtener el perfil usando la cookie HttpOnly existente
+        try {
+          const usuario = await obtenerUsuarioActual();
+          if (usuario) {
+            set({ usuario, cargando: false });
+            return;
+          }
+        } catch {
+          // Cookie expirada o inexistente — continúa al exchange
+        }
+
+        // Intercambia el token de Supabase por un JWT fresco del backend
+        try {
+          const usuario = await reautenticarConSesionActual();
+          set({ usuario: usuario ?? null, cargando: false });
+        } catch (error) {
+          // En 429, la cookie anterior podría ser válida — no limpiarla todavía
+          const is429 = error instanceof ApiError && error.status === 429;
+          if (is429) {
+            const usuarioExistente = await obtenerUsuarioActual();
+            if (usuarioExistente) {
+              set({ usuario: usuarioExistente, cargando: false });
+              return;
+            }
+          }
+          clearBackendToken();
+          set({ usuario: null, cargando: false });
+        }
+      } finally {
+        _cargarPerfilRunning = false;
+        if (_cargarPerfilRetryNeeded && !get().usuario) {
+          _cargarPerfilRetryNeeded = false;
+          cargarPerfil();
+        }
       }
     }
 
     cargarPerfil();
 
-    // Escucha eventos de sesión de Supabase
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -76,10 +112,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({ usuario: null, cargando: false });
         return;
       }
-      // TOKEN_REFRESHED: el backend JWT (7d) sigue válido, no hay que re-exchange.
-      // SIGNED_IN desde otra pestaña: recargamos el perfil.
-      if (event === "SIGNED_IN") {
-        cargarPerfil();
+
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        if (!get().usuario) {
+          cargarPerfil();
+        }
       }
     });
 

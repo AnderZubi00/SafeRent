@@ -400,8 +400,14 @@ function CheckoutContent() {
     setProcesandoPago(false);
   }
 
+  function fechaValida(d: string): boolean {
+    return !!d && !isNaN(new Date(d).getTime());
+  }
+
+  const fechasValidas = fechaValida(fechaEntrada) && fechaValida(fechaSalida);
+
   function calcularMeses(): number {
-    if (!fechaEntrada || !fechaSalida) return 0;
+    if (!fechasValidas) return 1;
     const start = new Date(fechaEntrada);
     const end = new Date(fechaSalida);
     return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
@@ -941,7 +947,7 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                {fechaEntrada && fechaSalida && (
+                {fechasValidas && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Entrada</span>

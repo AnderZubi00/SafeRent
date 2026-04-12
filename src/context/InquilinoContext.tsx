@@ -18,6 +18,7 @@ import {
   type Pago,
 } from "@/lib/pagos";
 import { obtenerContratoBySolicitud } from "@/lib/contratos";
+import { useAuthStore } from "@/store/authStore";
 
 export interface ContratoResumen {
   id: string;
@@ -130,6 +131,7 @@ function derivarDocumentos(solicitudes: SolicitudConContrato[]): DocumentoInquil
 }
 
 export function InquilinoProvider({ children }: { children: ReactNode }) {
+  const { usuario, cargando: authCargando } = useAuthStore();
   const [solicitudes, setSolicitudes] = useState<SolicitudConContrato[]>([]);
   const [documentos, setDocumentos] = useState<DocumentoInquilino[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
@@ -165,8 +167,10 @@ export function InquilinoProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (!authCargando && usuario) {
+      cargar();
+    }
+  }, [cargar, authCargando, usuario]);
 
   const value = useMemo<InquilinoState>(
     () => ({ solicitudes, documentos, pagos, cargando, recargar: cargar }),

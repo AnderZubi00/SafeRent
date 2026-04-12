@@ -22,6 +22,7 @@ import {
   type PagoPropietario,
 } from "@/lib/pagos";
 import { obtenerContratoBySolicitud, type ContratoDigital } from "@/lib/contratos";
+import { useAuthStore } from "@/store/authStore";
 
 export interface SolicitudConContrato extends Solicitud {
   contrato?: ContratoDigital | null;
@@ -48,6 +49,7 @@ const PropietarioContext = createContext<PropietarioState>({
 });
 
 export function PropietarioProvider({ children }: { children: ReactNode }) {
+  const { usuario, cargando: authCargando } = useAuthStore();
   const [viviendas, setViviendas] = useState<Vivienda[]>([]);
   const [solicitudes, setSolicitudes] = useState<SolicitudConContrato[]>([]);
   const [pagos, setPagos] = useState<PagoPropietario[]>([]);
@@ -94,8 +96,10 @@ export function PropietarioProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    cargar();
-  }, [cargar]);
+    if (!authCargando && usuario) {
+      cargar();
+    }
+  }, [cargar, authCargando, usuario]);
 
   const solicitudesPendientes = useMemo(
     () => solicitudes.filter((s) => s.estado === "PENDIENTE").length,

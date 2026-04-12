@@ -1,12 +1,26 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 /**
- * El JWT vive en una cookie HttpOnly seteada por el backend en /auth/exchange.
- * JS nunca puede leerla — el navegador la envía automáticamente con credentials: 'include'.
+ * JWT dual-channel: cookie HttpOnly (persistente, page reloads) + in-memory (sesión actual).
+ *
+ * La cookie cross-origin (localhost:3000 → localhost:3001) no siempre se almacena
+ * en Chrome/Firefox por restricciones de SameSite/third-party cookies.
+ * El token in-memory actúa como fallback inmediato; el backend acepta ambos
+ * (cookie primero, Authorization: Bearer segundo — ver jwt-auth.guard.ts).
  */
+let _inMemoryToken: string | null = null;
 
-/** Limpia la sesión llamando al endpoint de logout del backend (borra la cookie HttpOnly). */
+/** Error de API con status HTTP incluido para detección confiable (p.ej. 429 rate limit). */
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/** Limpia la sesión: token in-memory + cookie HttpOnly del backend. */
 export async function clearBackendToken(): Promise<void> {
+  _inMemoryToken = null;
   await fetch(`${API_URL}/api/v1/auth/logout`, {
     method: 'POST',
     credentials: 'include',
@@ -15,11 +29,15 @@ export async function clearBackendToken(): Promise<void> {
   });
 }
 
-/** @deprecated La cookie HttpOnly la setea el servidor — esta función ya no hace nada. */
-export function setBackendToken(_token: string): void {}
+/** Almacena el JWT en memoria para la sesión actual (fallback a cookie). */
+export function setBackendToken(token: string): void {
+  _inMemoryToken = token;
+}
 
-/** @deprecated La cookie HttpOnly no es legible desde JS. Siempre devuelve null. */
-export function getBackendToken(): null { return null; }
+/** Devuelve el JWT in-memory (null si no existe — la cookie puede seguir activa). */
+export function getBackendToken(): string | null {
+  return _inMemoryToken;
+}
 
 async function request<T>(
   endpoint: string,
@@ -32,6 +50,12 @@ async function request<T>(
     ...(options?.headers as Record<string, string>),
   };
 
+  // Fallback: si hay token in-memory, enviarlo como Authorization header.
+  // El backend prioriza la cookie, pero usa Bearer si no hay cookie.
+  if (_inMemoryToken && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${_inMemoryToken}`;
+  }
+
   const response = await fetch(url, {
     ...options,
     headers,
@@ -43,10 +67,10 @@ async function request<T>(
     // Si hay código estructurado (ej. STRIPE_NOT_CONNECTED), serializar todo
     // para que el caller pueda hacer JSON.parse(e.message) y leer el código
     if (error.code || typeof error.message === 'object') {
-      throw new Error(JSON.stringify(error));
+      throw new ApiError(JSON.stringify(error), response.status);
     }
     const msg = error.message ?? `Error ${response.status}`;
-    throw new Error(msg);
+    throw new ApiError(msg, response.status);
   }
 
   return response.json() as Promise<T>;

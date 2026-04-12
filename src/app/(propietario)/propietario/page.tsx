@@ -91,8 +91,8 @@ function PropietarioInicioContent() {
   }, []);
 
   useEffect(() => {
-    cargarBorradores();
-  }, [cargarBorradores]);
+    if (usuario) cargarBorradores();
+  }, [cargarBorradores, usuario]);
 
   const handleEliminarBorrador = async (id: string) => {
     setEliminandoId(id);

@@ -74,8 +74,8 @@ function PublicarViviendaContent() {
       }
     }
 
-    cargar();
-  }, [searchParams, router]);
+    if (usuario) cargar();
+  }, [searchParams, router, usuario]);
 
   // ── Phase completion handlers ──
 
