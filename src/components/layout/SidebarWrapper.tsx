@@ -14,7 +14,7 @@ export function SidebarWrapper({ role }: SidebarWrapperProps) {
   const [solicitudesPendientes, setSolicitudesPendientes] = useState(0);
 
   useEffect(() => {
-    if (role !== "propietario" || !usuario) return;
+    if (role !== "propietario" || !usuario || usuario.rol !== "PROPIETARIO") return;
 
     async function cargar() {
       const count = await contarSolicitudesPendientes();

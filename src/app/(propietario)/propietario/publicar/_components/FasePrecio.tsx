@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +44,7 @@ export default function FasePrecio({
     vivienda.fianza_importe ? String(vivienda.fianza_importe) : "",
   );
   const [disponibleDesde, setDisponibleDesde] = useState(
-    vivienda.disponible_desde ?? "",
+    vivienda.disponible_desde ? vivienda.disponible_desde.split("T")[0] : "",
   );
   const [estanciaMinima, setEstanciaMinima] = useState(
     vivienda.estancia_minima ? String(vivienda.estancia_minima) : "1",
@@ -55,6 +55,7 @@ export default function FasePrecio({
 
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submitRef = useRef(false);
   const [stripeModal, setStripeModal] = useState(false);
   const [conectandoStripe, setConectandoStripe] = useState(false);
 
@@ -66,10 +67,13 @@ export default function FasePrecio({
   }
 
   async function handleSubmit() {
+    if (submitRef.current) return;
+    submitRef.current = true;
     setError(null);
     const validationError = validate();
     if (validationError) {
       setError(validationError);
+      submitRef.current = false;
       return;
     }
 
@@ -105,6 +109,7 @@ export default function FasePrecio({
       }
     } finally {
       setCargando(false);
+      submitRef.current = false;
     }
   }
 

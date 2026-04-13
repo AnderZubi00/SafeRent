@@ -6,6 +6,7 @@ import {
   type UsuarioAuth,
 } from "@/lib/auth";
 import { clearBackendToken, ApiError } from "@/lib/api";
+import { isLoginInProgress } from "@/lib/auth-flags";
 
 /**
  * Control de concurrencia para cargarPerfil().
@@ -87,14 +88,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const usuario = await reautenticarConSesionActual();
           set({ usuario: usuario ?? null, cargando: false });
         } catch (error) {
-          // En 429, la cookie anterior podría ser válida — no limpiarla todavía
           const is429 = error instanceof ApiError && error.status === 429;
           if (is429) {
+            // Rate limit: preservamos el estado anterior para no desencadenar
+            // el loop (429 → null → SIGNED_IN → exchange → 429 → ...).
+            // Si había un usuario previo, lo mantenemos. Si no, dejamos cargando=false
+            // sin nullear — el usuario recargará la página cuando el límite expire.
             const usuarioExistente = await obtenerUsuarioActual();
-            if (usuarioExistente) {
-              set({ usuario: usuarioExistente, cargando: false });
-              return;
-            }
+            set({ usuario: usuarioExistente ?? get().usuario ?? null, cargando: false });
+            return;
           }
           clearBackendToken();
           set({ usuario: null, cargando: false });
@@ -120,9 +122,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
-        if (!get().usuario) {
-          // markRetryIfRunning=true: si llega un token fresco mientras corre
-          // un cargarPerfil con el viejo, reintentamos al terminar.
+        // Si loginConSupabase está en vuelo, ya maneja el exchange y llamará setUsuario.
+        // No triggerear cargarPerfil — evita la doble llamada a /auth/exchange.
+        if (isLoginInProgress()) return;
+
+        // Sólo reintentamos si la sesión está explícitamente cerrada (null).
+        // undefined = loading, UsuarioAuth = ya autenticado.
+        if (get().usuario === null) {
           cargarPerfil(true);
         }
       }

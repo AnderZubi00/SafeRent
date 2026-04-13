@@ -14,7 +14,7 @@ export function InquilinoInit() {
   const cargar = useInquilinoStore((s) => s.cargar);
 
   useEffect(() => {
-    if (!authCargando && usuario) {
+    if (!authCargando && usuario && usuario.rol === "INQUILINO") {
       cargar();
     }
   }, [authCargando, usuario, cargar]);

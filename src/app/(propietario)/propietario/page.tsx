@@ -91,7 +91,7 @@ function PropietarioInicioContent() {
   }, []);
 
   useEffect(() => {
-    if (usuario) cargarBorradores();
+    if (usuario && usuario.rol === "PROPIETARIO") cargarBorradores();
   }, [cargarBorradores, usuario]);
 
   const handleEliminarBorrador = async (id: string) => {

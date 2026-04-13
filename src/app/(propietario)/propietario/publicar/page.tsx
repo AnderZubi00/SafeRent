@@ -74,7 +74,7 @@ function PublicarViviendaContent() {
       }
     }
 
-    if (usuario) cargar();
+    if (usuario && usuario.rol === "PROPIETARIO") cargar();
   }, [searchParams, router, usuario]);
 
   // ── Phase completion handlers ──

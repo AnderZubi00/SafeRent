@@ -14,7 +14,7 @@ export function PropietarioInit() {
   const cargar = usePropietarioStore((s) => s.cargar);
 
   useEffect(() => {
-    if (!authCargando && usuario) {
+    if (!authCargando && usuario && usuario.rol === "PROPIETARIO") {
       cargar();
     }
   }, [authCargando, usuario, cargar]);

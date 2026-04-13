@@ -19,11 +19,26 @@ const RUTA_POR_ROL: Record<Rol, string> = {
   ADMINISTRADOR: "/admin",
 };
 
+const ROLES_VALIDOS: Rol[] = ["INQUILINO", "PROPIETARIO", "ADMINISTRADOR"];
+
 /**
- * Extrae el rol del payload del JWT almacenado en la cookie `saferent_jwt`.
- * Solo decodifica (base64) — la firma ya fue verificada al emitir el token.
+ * Extrae el rol del usuario desde cookies.
+ *
+ * Prioridad:
+ * 1. `saferent_role` — cookie JS (no HttpOnly) seteada por el frontend al hacer
+ *    exchange. Es same-origin (localhost:3000) y el middleware siempre la ve.
+ * 2. `saferent_jwt` — cookie HttpOnly seteada por el backend (localhost:3001).
+ *    En dev no viaja cross-origin por SameSite, pero sirve en producción con
+ *    un solo dominio.
  */
 function getRolDesdeCookie(request: NextRequest): Rol | null {
+  // 1. Cookie de rol (mismo origen — confiable en dev y prod)
+  const rolCookie = request.cookies.get("saferent_role")?.value;
+  if (rolCookie && ROLES_VALIDOS.includes(rolCookie as Rol)) {
+    return rolCookie as Rol;
+  }
+
+  // 2. Fallback: decodificar JWT del backend
   const token = request.cookies.get("saferent_jwt")?.value;
   if (!token) return null;
   try {

@@ -1,13 +1,21 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// En dev usamos URL relativa para que el rewrite de Next.js proxie las llamadas
+// a localhost:3001 como mismo origen → la cookie HttpOnly viaja en todos los requests.
+// En prod, NEXT_PUBLIC_API_URL puede apuntar al dominio propio (mismo origen ya nativo).
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 /**
- * JWT dual-channel: cookie HttpOnly (persistente, page reloads) + in-memory (sesión actual).
+ * JWT triple-channel:
+ * 1. Cookie HttpOnly (backend, cross-origin — no llega al middleware en dev)
+ * 2. In-memory (sesión actual, se pierde en page refresh)
+ * 3. sessionStorage (mismo tab, sobrevive page refresh, se borra al cerrar el tab)
  *
- * La cookie cross-origin (localhost:3000 → localhost:3001) no siempre se almacena
- * en Chrome/Firefox por restricciones de SameSite/third-party cookies.
- * El token in-memory actúa como fallback inmediato; el backend acepta ambos
- * (cookie primero, Authorization: Bearer segundo — ver jwt-auth.guard.ts).
+ * En dev, la cookie cross-origin (localhost:3000 → localhost:3001) no viaja por
+ * restricciones SameSite. El Bearer + sessionStorage son el canal principal en dev.
+ * En prod (mismo dominio) la cookie HttpOnly funciona nativamente.
+ *
+ * Prioridad en cada request: in-memory → sessionStorage → cookie (implícita via credentials:include)
  */
+const SESSION_STORAGE_KEY = 'sr_jwt';
 let _inMemoryToken: string | null = null;
 
 /** Error de API con status HTTP incluido para detección confiable (p.ej. 429 rate limit). */
@@ -18,9 +26,15 @@ export class ApiError extends Error {
   }
 }
 
-/** Limpia la sesión: token in-memory + cookie HttpOnly del backend. */
+/** Limpia la sesión: token in-memory + sessionStorage + cookies. */
 export async function clearBackendToken(): Promise<void> {
   _inMemoryToken = null;
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+  if (typeof document !== 'undefined') {
+    document.cookie = 'saferent_role=; path=/; max-age=0; SameSite=Lax';
+  }
   await fetch(`${API_URL}/api/v1/auth/logout`, {
     method: 'POST',
     credentials: 'include',
@@ -29,14 +43,28 @@ export async function clearBackendToken(): Promise<void> {
   });
 }
 
-/** Almacena el JWT en memoria para la sesión actual (fallback a cookie). */
+/** Almacena el JWT en memoria y en sessionStorage (sobrevive page refresh, no tab close). */
 export function setBackendToken(token: string): void {
   _inMemoryToken = token;
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(SESSION_STORAGE_KEY, token);
+  }
 }
 
-/** Devuelve el JWT in-memory (null si no existe — la cookie puede seguir activa). */
+/**
+ * Devuelve el JWT activo.
+ * Restaura desde sessionStorage si _inMemoryToken fue limpiado por un page refresh.
+ */
 export function getBackendToken(): string | null {
-  return _inMemoryToken;
+  if (_inMemoryToken) return _inMemoryToken;
+  if (typeof sessionStorage !== 'undefined') {
+    const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (stored) {
+      _inMemoryToken = stored; // restaurar al módulo
+      return stored;
+    }
+  }
+  return null;
 }
 
 async function request<T>(
@@ -50,10 +78,13 @@ async function request<T>(
     ...(options?.headers as Record<string, string>),
   };
 
-  // Fallback: si hay token in-memory, enviarlo como Authorization header.
-  // El backend prioriza la cookie, pero usa Bearer si no hay cookie.
-  if (_inMemoryToken && !headers['Authorization']) {
-    headers['Authorization'] = `Bearer ${_inMemoryToken}`;
+  // Incluir JWT como Bearer si está disponible (in-memory o sessionStorage).
+  // El backend prioriza la cookie HttpOnly, pero en dev (cross-origin) no llega
+  // y usa Bearer como fallback. getBackendToken() restaura desde sessionStorage
+  // si _inMemoryToken fue limpiado por un page refresh.
+  const token = getBackendToken();
+  if (token && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
 
   const response = await fetch(url, {

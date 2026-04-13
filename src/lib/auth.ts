@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { api, setBackendToken, clearBackendToken } from "@/lib/api";
+import { setLoginInProgress } from "@/lib/auth-flags";
 
 export type Rol = "INQUILINO" | "PROPIETARIO" | "ADMINISTRADOR";
 
@@ -28,6 +29,17 @@ export function rutaSegunRol(rol: Rol): string {
  * Intercambia un token de Supabase por un JWT del backend.
  * En registro, pasa nombre_completo y rol para crear el perfil automáticamente.
  */
+/**
+ * Escribe el rol en una cookie accesible por el middleware de Next.js.
+ * NO es HttpOnly — el middleware corre server-side y lee cookies del request
+ * entrante (mismo origen: localhost:3000). La cookie saferent_jwt viene del
+ * backend (localhost:3001) y por SameSite cross-origin nunca llega al middleware.
+ */
+function setRoleCookie(rol: Rol): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `saferent_role=${rol}; path=/; max-age=86400; SameSite=Lax`;
+}
+
 async function exchangeForBackendJwt(
   supabaseAccessToken: string,
   registroData?: { nombre_completo: string; rol: Rol }
@@ -40,6 +52,7 @@ async function exchangeForBackendJwt(
     }
   );
   setBackendToken(result.access_token);
+  setRoleCookie(result.usuario.rol);
   return result.usuario;
 }
 
@@ -52,23 +65,32 @@ export async function loginConSupabase(
 ): Promise<UsuarioAuth> {
   const supabase = createClient();
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  // Marcamos login en progreso ANTES de signInWithPassword.
+  // Supabase dispara SIGNED_IN internamente durante signInWithPassword (antes de retornar),
+  // lo que causaría que el authStore llame exchange de forma redundante.
+  // El flag le dice al listener de SIGNED_IN que loginConSupabase ya lo maneja.
+  setLoginInProgress(true);
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
-    if (error.message.includes("Invalid login credentials")) {
-      throw new Error("Email o contraseña incorrectos");
+    if (error) {
+      if (error.message.includes("Invalid login credentials")) {
+        throw new Error("Email o contraseña incorrectos");
+      }
+      if (error.message.includes("Email not confirmed")) {
+        throw new Error("Debes confirmar tu email antes de acceder");
+      }
+      throw new Error(error.message);
     }
-    if (error.message.includes("Email not confirmed")) {
-      throw new Error("Debes confirmar tu email antes de acceder");
-    }
-    throw new Error(error.message);
+
+    // Exchange Supabase token for backend JWT
+    return await exchangeForBackendJwt(data.session.access_token);
+  } finally {
+    setLoginInProgress(false);
   }
-
-  // Exchange Supabase token for backend JWT
-  return exchangeForBackendJwt(data.session.access_token);
 }
 
 /**
