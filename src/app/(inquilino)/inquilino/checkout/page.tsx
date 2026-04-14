@@ -28,6 +28,7 @@ import {
 import { cn } from "@/lib/utils";
 import { KycMobilePanel } from "@/components/kyc/KycMobilePanel";
 import { KycResultBadge } from "@/components/kyc/KycResultBadge";
+import { CalendarioReserva } from "@/components/reserva/CalendarioReserva";
 import type { KycMobileResultado } from "@/hooks/useKycMobileSession";
 import { useInquilino } from "@/store/inquilinoStore";
 import { obtenerViviendaById, type Vivienda } from "@/lib/viviendas";
@@ -145,6 +146,7 @@ function CheckoutContent() {
   const [docJustificativo, setDocJustificativo] = useState<File | null>(null);
   const [fechaEntrada, setFechaEntrada] = useState(entradaParam);
   const [fechaSalida, setFechaSalida] = useState(salidaParam);
+  const [modalFechasOpen, setModalFechasOpen] = useState(false);
 
   // Solicitud state
   const [enviandoSolicitud, setEnviandoSolicitud] = useState(false);
@@ -204,8 +206,8 @@ function CheckoutContent() {
       }
 
       setSolicitudEstado(result.estado);
-      if (result.fecha_entrada) setFechaEntrada(result.fecha_entrada);
-      if (result.fecha_salida) setFechaSalida(result.fecha_salida);
+      if (result.fecha_entrada) setFechaEntrada(result.fecha_entrada.split('T')[0]);
+      if (result.fecha_salida) setFechaSalida(result.fecha_salida.split('T')[0]);
 
       if (result.estado === "RECHAZADA") {
         setMotivoRechazo(result.motivo_rechazo);
@@ -297,7 +299,10 @@ function CheckoutContent() {
   }
 
   async function handleEnviarSolicitud() {
-    if (!vivienda || !kycResultado || !docJustificativo || !motivo) return;
+    if (!vivienda) { setError("Error cargando datos de la vivienda. Recargá la página."); return; }
+    if (!kycResultado) { setError("Completá la verificación de identidad en el paso anterior."); return; }
+    if (!motivo) { setError("Seleccioná el motivo de tu estancia."); return; }
+    if (!docJustificativo) { setError("Adjuntá el documento justificativo."); return; }
 
     const kycData = JSON.stringify({
       verificado_via: "kyc_movil",
@@ -405,12 +410,23 @@ function CheckoutContent() {
     return !!d && !isNaN(new Date(d).getTime());
   }
 
+  // Normaliza cualquier formato de fecha a "YYYY-MM-DD" para evitar bugs de timezone
+  function normalizarFecha(f: string): string {
+    return f.includes('T') ? f.split('T')[0] : f;
+  }
+
+  // Parsea "YYYY-MM-DD" como fecha local (sin conversión UTC)
+  function parseFechaLocal(f: string): Date {
+    const s = normalizarFecha(f);
+    return new Date(s + 'T00:00:00');
+  }
+
   const fechasValidas = fechaValida(fechaEntrada) && fechaValida(fechaSalida);
 
   function calcularMeses(): number {
     if (!fechasValidas) return 1;
-    const start = new Date(fechaEntrada);
-    const end = new Date(fechaSalida);
+    const start = parseFechaLocal(fechaEntrada);
+    const end = parseFechaLocal(fechaSalida);
     return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
   }
 
@@ -629,34 +645,57 @@ function CheckoutContent() {
                     )}
 
                     {/* Dates */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha de entrada</label>
-                        <input
-                          type="date"
-                          value={fechaEntrada}
-                          onChange={(e) => setFechaEntrada(e.target.value)}
-                          className="w-full rounded-lg ring-1 ring-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-indigo-500"
-                        />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fechas de estancia</p>
+                        <button
+                          type="button"
+                          onClick={() => setModalFechasOpen(true)}
+                          className="text-xs text-indigo-600 hover:text-indigo-500 font-medium flex items-center gap-1"
+                        >
+                          <Calendar className="h-3 w-3" />
+                          {fechaEntrada && fechaSalida ? 'Modificar' : 'Seleccionar'}
+                        </button>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Fecha de salida</label>
-                        <input
-                          type="date"
-                          value={fechaSalida}
-                          onChange={(e) => setFechaSalida(e.target.value)}
-                          min={fechaEntrada}
-                          className="w-full rounded-lg ring-1 ring-slate-200 px-3 py-2.5 text-sm outline-none focus:ring-indigo-500"
-                        />
-                      </div>
+
+                      {fechaEntrada && fechaSalida ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-3 bg-slate-50 ring-1 ring-slate-200 rounded-xl p-3">
+                            <div>
+                              <p className="text-xs text-slate-400 mb-0.5">Entrada</p>
+                              <p className="text-sm font-semibold text-slate-800">
+                                {parseFechaLocal(fechaEntrada).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              </p>
+                            </div>
+                            <div className="border-l border-slate-200 pl-3">
+                              <p className="text-xs text-slate-400 mb-0.5">Salida</p>
+                              <p className="text-sm font-semibold text-slate-800">
+                                {parseFechaLocal(fechaSalida).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="bg-indigo-50 ring-1 ring-indigo-100 rounded-xl p-3 text-sm text-indigo-700">
+                            Estancia de <strong>{calcularMeses()} meses</strong>
+                            {vivienda && (
+                              <span className="text-indigo-400"> (mín. {vivienda.estancia_minima}, máx. {vivienda.estancia_maxima} meses)</span>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setModalFechasOpen(true)}
+                          className="w-full border-2 border-dashed border-indigo-200 rounded-xl p-4 text-center text-sm text-indigo-400 hover:border-indigo-400 hover:text-indigo-600 transition-colors"
+                        >
+                          Hacé click para seleccionar las fechas de entrada y salida
+                        </button>
+                      )}
                     </div>
 
-                    {fechaEntrada && fechaSalida && (
-                      <div className="bg-slate-50 ring-1 ring-slate-200 rounded-xl p-3 text-sm text-slate-600">
-                        Estancia de <strong>{calcularMeses()} meses</strong>
-                        {vivienda && (
-                          <span className="text-slate-400"> (mín. {vivienda.estancia_minima}, máx. {vivienda.estancia_maxima} meses)</span>
-                        )}
+                    {(!fechaEntrada || !fechaSalida) && (
+                      <div className="flex items-center gap-2 bg-amber-50 ring-1 ring-amber-200 rounded-xl px-3 py-2.5">
+                        <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                        <p className="text-xs text-amber-700">Volvé a la vivienda y seleccioná las fechas de entrada y salida en el calendario.</p>
                       </div>
                     )}
 
@@ -787,7 +826,8 @@ function CheckoutContent() {
                     <div className="space-y-2 text-sm">
                       {[
                         ["Vivienda", `${vivienda.titulo} · ${vivienda.ciudad}`],
-                        ["Duración", fechaEntrada && fechaSalida ? `${new Date(fechaEntrada).toLocaleDateString("es-ES")} – ${new Date(fechaSalida).toLocaleDateString("es-ES")}` : "—"],
+                        ["Entrada", fechaEntrada ? parseFechaLocal(fechaEntrada).toLocaleDateString("es-ES", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"],
+                        ["Salida", fechaSalida ? parseFechaLocal(fechaSalida).toLocaleDateString("es-ES", { day: 'numeric', month: 'long', year: 'numeric' }) : "—"],
                         ["Renta mensual", `${vivienda.precio_mes.toLocaleString("es-ES")}€/mes`],
                         ["Fianza", `${vivienda.fianza_importe.toLocaleString("es-ES")}€`],
                       ].map(([k, v]) => (
@@ -955,11 +995,11 @@ function CheckoutContent() {
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Entrada</span>
-                      <span className="font-medium text-slate-900">{new Date(fechaEntrada).toLocaleDateString("es-ES")}</span>
+                      <span className="font-medium text-slate-900">{parseFechaLocal(fechaEntrada).toLocaleDateString("es-ES", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="flex items-center gap-1.5 text-slate-600"><Calendar className="h-3.5 w-3.5" />Salida</span>
-                      <span className="font-medium text-slate-900">{new Date(fechaSalida).toLocaleDateString("es-ES")}</span>
+                      <span className="font-medium text-slate-900">{parseFechaLocal(fechaSalida).toLocaleDateString("es-ES", { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                   </div>
                 )}
@@ -1001,6 +1041,24 @@ function CheckoutContent() {
           </div>
         </div>
       </div>
+
+      {/* Modal calendario para modificar fechas desde el checkout */}
+      {vivienda && (
+        <CalendarioReserva
+          viviendaId={vivienda.id}
+          estanciaMinima={vivienda.estancia_minima ?? 1}
+          estanciaMaxima={vivienda.estancia_maxima ?? 12}
+          disponibleDesde={vivienda.disponible_desde ?? null}
+          isOpen={modalFechasOpen}
+          onClose={() => setModalFechasOpen(false)}
+          onConfirm={(from, to) => {
+            const toLocalDate = (d: Date) =>
+              `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            setFechaEntrada(toLocalDate(from));
+            setFechaSalida(toLocalDate(to));
+          }}
+        />
+      )}
     </div>
   );
 }

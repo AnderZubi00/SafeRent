@@ -104,7 +104,19 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
           <p className="text-xs text-amber-700 mt-1">Tu pago queda protegido hasta confirmar la estancia.</p>
         </div>
 
-        <BotonReservar viviendaId={viviendaId} fechaEntrada={entrada} fechaSalida={salida} />
+        {!entrada || !salida ? (
+          <div className="space-y-2">
+            <button
+              onClick={() => setModalOpen(true)}
+              className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-semibold text-sm transition-colors"
+            >
+              Seleccionar fechas para reservar
+            </button>
+            <p className="text-xs text-center text-slate-400">Elegí el mes de entrada y salida para continuar</p>
+          </div>
+        ) : (
+          <BotonReservar viviendaId={viviendaId} fechaEntrada={entrada} fechaSalida={salida} />
+        )}
 
         <div className="flex items-center gap-4 text-xs text-slate-500 justify-center">
           <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" /> Contrato digital</span>
@@ -120,8 +132,11 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onConfirm={(from, to) => {
-          setEntrada(from.toISOString().split('T')[0]);
-          setSalida(to.toISOString().split('T')[0]);
+          // Usar fecha LOCAL para evitar el bug de timezone con toISOString()
+          const toLocalDate = (d: Date) =>
+            `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          setEntrada(toLocalDate(from));
+          setSalida(toLocalDate(to));
         }}
       />
     </Card>

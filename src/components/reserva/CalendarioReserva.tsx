@@ -8,6 +8,7 @@ import {
   isWithinInterval,
   startOfMonth,
   endOfMonth,
+  addMonths,
   differenceInMonths,
   areIntervalsOverlapping,
 } from 'date-fns';
@@ -66,8 +67,13 @@ export function CalendarioReserva({
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  // El mes mínimo seleccionable es el próximo mes (el mes actual ya tiene días pasados
+  // y startOfMonth(mes_actual) siempre queda en el pasado)
+  const primerMesDisponible = startOfMonth(addMonths(today, 1));
+
   const disabledDays = (date: Date): boolean => {
-    if (isBefore(date, today)) return true;
+    // Bloquear todo el mes actual y anteriores
+    if (isBefore(date, primerMesDisponible)) return true;
 
     if (disponibleDesde) {
       const desde = new Date(disponibleDesde);
@@ -176,7 +182,7 @@ export function CalendarioReserva({
               numberOfMonths={1}
               locale={es}
               weekStartsOn={1}
-              fromDate={today}
+              fromDate={primerMesDisponible}
               classNames={{
                 disabled: 'opacity-30 cursor-not-allowed',
                 range_start: 'rounded-l-full bg-indigo-600 text-white',
