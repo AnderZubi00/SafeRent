@@ -40,6 +40,7 @@ import SignatureCanvas from "react-signature-canvas";
 const MOTIVO_CONFIG: Record<string, { icon: typeof GraduationCap; color: string; bg: string }> = {
   Estudios: { icon: GraduationCap, color: "text-indigo-600", bg: "bg-indigo-50 ring-indigo-200" },
   "Trabajo temporal": { icon: Briefcase, color: "text-emerald-600", bg: "bg-emerald-50 ring-emerald-200" },
+  Salud: { icon: Shield, color: "text-rose-600", bg: "bg-rose-50 ring-rose-200" },
   Otros: { icon: HelpCircle, color: "text-amber-600", bg: "bg-amber-50 ring-amber-200" },
 };
 

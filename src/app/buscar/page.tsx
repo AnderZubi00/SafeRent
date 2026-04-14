@@ -33,7 +33,7 @@ function getColor(id: string) {
   return CARD_COLORS[Math.abs(hash) % CARD_COLORS.length];
 }
 
-const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
+const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Salud", "Otros"];
 const TODAS_PROVINCIAS = getAllProvincias();
 
 export default function BuscarPage() {

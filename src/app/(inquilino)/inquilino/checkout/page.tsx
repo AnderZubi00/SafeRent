@@ -57,6 +57,7 @@ const STEPS = [
 const MOTIVOS = [
   { id: "Estudios", label: "Estudios", icon: GraduationCap, doc: "Matrícula universitaria" },
   { id: "Trabajo temporal", label: "Trabajo temporal", icon: Briefcase, doc: "Contrato laboral" },
+  { id: "Salud", label: "Salud", icon: Shield, doc: "Informe médico o similar" },
   { id: "Otros", label: "Otros", icon: HelpCircle, doc: "Documento justificativo" },
 ];
 
@@ -309,7 +310,7 @@ function CheckoutContent() {
     const blob = new Blob([kycData], { type: "application/json" });
     const identidadFile = new File([blob], "kyc-verificacion-movil.json", { type: "application/json" });
     if (motivo === "Otros" && !motivoDetalle.trim()) {
-      setError("Describe el motivo de tu estancia temporal");
+      setError("Por favor describí el motivo de tu estancia.");
       return;
     }
     if (!fechaEntrada || !fechaSalida) {
@@ -551,11 +552,11 @@ function CheckoutContent() {
                   <CardContent className="space-y-5">
                     <p className="text-sm text-slate-600">¿Cuál es el motivo de tu estancia temporal?</p>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {MOTIVOS.map((m) => (
                         <button
                           key={m.id}
-                          onClick={() => setMotivo(m.id)}
+                          onClick={() => { setMotivo(m.id); if (m.id !== "Otros") setMotivoDetalle(""); }}
                           className={cn(
                             "p-4 rounded-xl ring-1 text-left transition-all",
                             motivo === m.id ? "ring-indigo-500 bg-indigo-50" : "ring-slate-200 hover:ring-slate-300"
@@ -571,15 +572,18 @@ function CheckoutContent() {
                     {/* Motivo detalle for "Otros" */}
                     {motivo === "Otros" && (
                       <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                          Describe el motivo de tu estancia
+                        <label className="block text-sm font-medium text-slate-700 mb-1">
+                          Contanos más sobre tu situación <span className="text-red-500">*</span>
                         </label>
                         <textarea
                           value={motivoDetalle}
                           onChange={(e) => setMotivoDetalle(e.target.value)}
-                          placeholder="Ej: Traslado temporal por reforma de mi vivienda habitual..."
-                          className="w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 text-sm outline-none focus:ring-indigo-500 min-h-[80px] resize-none"
+                          placeholder="Describí brevemente el motivo de tu estancia..."
+                          rows={3}
+                          maxLength={300}
+                          className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-colors"
                         />
+                        <p className="text-xs text-slate-400 text-right mt-1">{motivoDetalle.length}/300</p>
                       </div>
                     )}
 

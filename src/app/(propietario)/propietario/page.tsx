@@ -39,6 +39,7 @@ function getColor(id: string) {
 const MOTIVO_ICON: Record<string, typeof Users> = {
   Estudios: Users,
   "Trabajo temporal": Users,
+  Salud: Users,
   Otros: Users,
 };
 
@@ -404,6 +405,9 @@ function PropietarioInicioContent() {
                       {s.motivo}
                     </span>
                   </div>
+                  {s.motivo_detalle && (
+                    <p className="text-xs text-slate-400 italic truncate mt-1">"{s.motivo_detalle}"</p>
+                  )}
                   <div className="mt-3">
                     <Link href="/propietario/solicitudes">
                       <Button size="sm" variant="outline" className="h-7 text-xs ring-1 ring-indigo-200 border-0 text-indigo-600 hover:bg-indigo-50">
