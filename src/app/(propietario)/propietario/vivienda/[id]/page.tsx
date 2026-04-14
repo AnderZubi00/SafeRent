@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { usePropietario, type SolicitudConContrato } from "@/store/propietarioStore";
 import ToggleActivaButton from "../../_components/ToggleActivaButton";
 import type { PagoPropietario } from "@/lib/pagos";
+import { CalendarioPropietario } from "@/components/propietario/CalendarioPropietario";
 
 const COMISION_RATE = 0.03;
 
@@ -154,80 +155,6 @@ function SolicitudMiniCard({ sol }: { sol: SolicitudConContrato }) {
   );
 }
 
-/* ─── Occupancy Timeline ─── */
-function OccupancyTimeline({ solicitudes }: { solicitudes: SolicitudConContrato[] }) {
-  const aceptadas = solicitudes.filter((s) => s.estado === "ACEPTADA");
-
-  if (aceptadas.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <Calendar className="h-7 w-7 text-slate-300 mx-auto mb-2" />
-        <p className="text-xs text-slate-500">Sin reservas registradas</p>
-      </div>
-    );
-  }
-
-  const now = new Date();
-  const rangeStart = new Date(now.getFullYear(), now.getMonth() - 6, 1);
-  const rangeEnd = new Date(now.getFullYear(), now.getMonth() + 6, 0);
-  const totalMs = rangeEnd.getTime() - rangeStart.getTime();
-
-  const nowPct = ((now.getTime() - rangeStart.getTime()) / totalMs) * 100;
-
-  const months: string[] = [];
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + i, 1);
-    months.push(d.toLocaleDateString("es-ES", { month: "short" }));
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Month labels */}
-      <div className="flex text-[10px] text-slate-400 font-medium">
-        {months.map((m, i) => (
-          <div key={i} className="flex-1 text-center">{m}</div>
-        ))}
-      </div>
-
-      {/* Timeline bar */}
-      <div className="relative h-8 bg-slate-100 rounded-lg overflow-hidden">
-        {/* Now marker */}
-        <div
-          className="absolute top-0 bottom-0 w-0.5 bg-indigo-600 z-20"
-          style={{ left: `${Math.min(Math.max(nowPct, 0), 100)}%` }}
-        />
-
-        {/* Booking bars */}
-        {aceptadas.map((s) => {
-          const start = new Date(s.fecha_entrada);
-          const end = new Date(s.fecha_salida);
-          const leftPct = Math.max(0, ((start.getTime() - rangeStart.getTime()) / totalMs) * 100);
-          const widthPct = Math.min(100 - leftPct, ((end.getTime() - start.getTime()) / totalMs) * 100);
-          const isPast = end < now;
-
-          return (
-            <div
-              key={s.id}
-              className={cn(
-                "absolute top-1 bottom-1 rounded-md z-10",
-                isPast ? "bg-slate-300" : "bg-emerald-400"
-              )}
-              style={{ left: `${leftPct}%`, width: `${Math.max(widthPct, 1)}%` }}
-              title={`${s.usuarios?.nombre_completo ?? "Inquilino"}: ${formatDateShort(s.fecha_entrada)} – ${formatDateShort(s.fecha_salida)}`}
-            />
-          );
-        })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 text-[10px] text-slate-400">
-        <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-emerald-400" /> Activa</span>
-        <span className="flex items-center gap-1"><div className="h-2 w-2 rounded-full bg-slate-300" /> Pasada</span>
-        <span className="flex items-center gap-1"><div className="h-2 w-0.5 bg-indigo-600" /> Hoy</span>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Payment Table ─── */
 function PaymentTable({ pagos }: { pagos: PagoPropietario[] }) {
@@ -541,11 +468,7 @@ export default function ViviendaDetallePage() {
         <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
           <Calendar className="h-4 w-4 text-indigo-600" /> Ocupación
         </h2>
-        <Card className="ring-1 ring-slate-200 shadow-sm border-0">
-          <CardContent className="p-5">
-            <OccupancyTimeline solicitudes={sols} />
-          </CardContent>
-        </Card>
+        <CalendarioPropietario solicitudes={sols} viviendaId={id} />
       </div>
 
       {/* Footer summary */}

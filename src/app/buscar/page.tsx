@@ -63,6 +63,8 @@ function BuscarContent() {
   const [habFiltro, setHabFiltro] = useState(0); // 0 = todas
   const [soloVerificadas, setSoloVerificadas] = useState(false);
   const [ordenFiltro, setOrdenFiltro] = useState("recientes");
+  const [fechaEntrada, setFechaEntrada] = useState("");
+  const [fechaSalida, setFechaSalida] = useState("");
 
   const cargarViviendas = useCallback(async () => {
     setCargando(true);
@@ -79,11 +81,13 @@ function BuscarContent() {
       precioMax: precioMax ? Number(precioMax) : undefined,
       habitaciones: habFiltro,
       soloVerificadas: soloVerificadas || undefined,
+      ...(fechaEntrada && { fechaEntrada }),
+      ...(fechaSalida && { fechaSalida }),
     });
     setCargando(false);
     if (error) { setErrorMsg(error); return; }
     setViviendas(data);
-  }, [provinciaFiltro, ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro, soloVerificadas]);
+  }, [provinciaFiltro, ciudadFiltro, motivoFiltro, precioMin, precioMax, habFiltro, soloVerificadas, fechaEntrada, fechaSalida]);
 
   useEffect(() => {
     cargarViviendas();
@@ -118,6 +122,7 @@ function BuscarContent() {
   if (precioMax) filtrosActivos.push({ label: `Hasta ${precioMax}€`, remove: () => setPrecioMax("") });
   if (habFiltro > 0) filtrosActivos.push({ label: `${habFiltro}+ hab.`, remove: () => setHabFiltro(0) });
   if (soloVerificadas) filtrosActivos.push({ label: "Solo verificadas", remove: () => setSoloVerificadas(false) });
+  if (fechaEntrada || fechaSalida) filtrosActivos.push({ label: `${fechaEntrada || "??"} → ${fechaSalida || "??"}`, remove: () => { setFechaEntrada(""); setFechaSalida(""); } });
 
   function resetFiltros() {
     setProvinciaFiltro("todas");
@@ -128,6 +133,8 @@ function BuscarContent() {
     setHabFiltro(0);
     setBusqueda("");
     setSoloVerificadas(false);
+    setFechaEntrada("");
+    setFechaSalida("");
   }
 
   return (
@@ -264,6 +271,48 @@ function BuscarContent() {
                       onChange={(e) => setPrecioMax(e.target.value)}
                       className="text-sm ring-1 ring-slate-200 border-0 h-9 text-center"
                     />
+                  </div>
+                </div>
+
+                <Separator className="bg-slate-100" />
+
+                {/* Disponibilidad */}
+                <div className="space-y-3">
+                  <label className="text-xs font-semibold text-slate-900">Disponibilidad</label>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Entrada</p>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        value={fechaEntrada}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFechaEntrada(val);
+                          if (fechaSalida && val >= fechaSalida) setFechaSalida("");
+                        }}
+                        className="w-full text-sm ring-1 ring-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0 bg-white text-slate-700"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Salida</p>
+                      <input
+                        type="date"
+                        min={fechaEntrada || new Date().toISOString().split('T')[0]}
+                        value={fechaSalida}
+                        onChange={(e) => setFechaSalida(e.target.value)}
+                        disabled={!fechaEntrada}
+                        className="w-full text-sm ring-1 ring-slate-200 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500/30 focus:ring-offset-0 bg-white text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
+                    </div>
+                    {(fechaEntrada || fechaSalida) && (
+                      <button
+                        onClick={() => { setFechaEntrada(""); setFechaSalida(""); }}
+                        className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        Limpiar fechas
+                      </button>
+                    )}
                   </div>
                 </div>
 

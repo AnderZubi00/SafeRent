@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BotonReservar } from "@/components/reserva/BotonReservar";
-import { Shield, FileText, CreditCard, Calendar } from "lucide-react";
+import { CalendarioReserva } from "@/components/reserva/CalendarioReserva";
+import { Shield, FileText, CreditCard } from "lucide-react";
 
 interface CardReservaProps {
   viviendaId: string;
@@ -11,6 +12,7 @@ interface CardReservaProps {
   fianzaImporte: number;
   estanciaMinima?: number;
   estanciaMaxima?: number;
+  disponibleDesde?: string | null;
 }
 
 function calcularMeses(entrada: string, salida: string): number | null {
@@ -25,9 +27,10 @@ function calcularMeses(entrada: string, salida: string): number | null {
   return meses;
 }
 
-export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMinima, estanciaMaxima }: CardReservaProps) {
+export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMinima, estanciaMaxima, disponibleDesde }: CardReservaProps) {
   const [entrada, setEntrada] = useState("");
   const [salida, setSalida] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
 
   const meses = useMemo(() => calcularMeses(entrada, salida), [entrada, salida]);
   const mesesDisplay = meses ?? 1;
@@ -35,26 +38,6 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
   const subtotal = precioMes * mesesDisplay;
   const comision = precioMes * 0.09;
   const totalEstimado = subtotal + fianzaImporte + comision;
-
-  // Fecha mínima de entrada: hoy
-  const hoy = new Date().toISOString().split("T")[0];
-
-  // Fecha mínima de salida: al menos 1 mes después de entrada
-  const minSalida = useMemo(() => {
-    if (!entrada) return hoy;
-    const d = new Date(entrada);
-    const minMeses = estanciaMinima ?? 1;
-    d.setMonth(d.getMonth() + minMeses);
-    return d.toISOString().split("T")[0];
-  }, [entrada, estanciaMinima, hoy]);
-
-  // Fecha máxima de salida: estanciaMaxima meses después de entrada
-  const maxSalida = useMemo(() => {
-    if (!entrada || !estanciaMaxima) return undefined;
-    const d = new Date(entrada);
-    d.setMonth(d.getMonth() + estanciaMaxima);
-    return d.toISOString().split("T")[0];
-  }, [entrada, estanciaMaxima]);
 
   return (
     <Card className="ring-1 ring-slate-200 shadow-sm border-0 sticky top-24">
@@ -67,41 +50,30 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
         <p className="text-sm text-slate-500">+ {fianzaImporte}€ de fianza</p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Entrada</label>
-            <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2">
-              <Calendar className="h-4 w-4 text-slate-400" />
-              <input
-                type="date"
-                className="text-sm outline-none flex-1 bg-transparent"
-                min={hoy}
-                value={entrada}
-                onChange={(e) => {
-                  setEntrada(e.target.value);
-                  // Reset salida si ya no es válida
-                  if (salida && e.target.value && new Date(salida) <= new Date(e.target.value)) {
-                    setSalida("");
-                  }
-                }}
-              />
+        {/* Fechas — trigger del modal */}
+        <button
+          onClick={() => setModalOpen(true)}
+          className="w-full border border-slate-200 rounded-xl p-3 text-left hover:border-indigo-300 transition-colors"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Entrada</p>
+              <p className={`text-sm ${entrada ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
+                {entrada
+                  ? new Date(entrada + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : 'Seleccionar'}
+              </p>
+            </div>
+            <div className="border-l border-slate-100 pl-3">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Salida</p>
+              <p className={`text-sm ${salida ? 'text-slate-800 font-medium' : 'text-slate-400'}`}>
+                {salida
+                  ? new Date(salida + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : 'Seleccionar'}
+              </p>
             </div>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Salida</label>
-            <div className="flex items-center gap-2 ring-1 ring-slate-200 rounded-lg px-3 py-2">
-              <Calendar className="h-4 w-4 text-slate-400" />
-              <input
-                type="date"
-                className="text-sm outline-none flex-1 bg-transparent"
-                min={minSalida}
-                max={maxSalida}
-                value={salida}
-                onChange={(e) => setSalida(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
+        </button>
 
         <div className="space-y-2 py-3 border-t border-b border-slate-200">
           <div className="flex justify-between text-sm">
@@ -139,6 +111,19 @@ export function CardReserva({ viviendaId, precioMes, fianzaImporte, estanciaMini
           <span className="flex items-center gap-1"><CreditCard className="h-3.5 w-3.5" /> Stripe seguro</span>
         </div>
       </CardContent>
+
+      <CalendarioReserva
+        viviendaId={viviendaId}
+        estanciaMinima={estanciaMinima ?? 1}
+        estanciaMaxima={estanciaMaxima ?? 12}
+        disponibleDesde={disponibleDesde}
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onConfirm={(from, to) => {
+          setEntrada(from.toISOString().split('T')[0]);
+          setSalida(to.toISOString().split('T')[0]);
+        }}
+      />
     </Card>
   );
 }
