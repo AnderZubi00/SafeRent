@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { guardarFase, type Vivienda } from "@/lib/viviendas";
+import { comprimirFoto } from "@/lib/image-utils";
 import LocationSelector from "@/components/forms/LocationSelector";
 
 const MOTIVOS_OPCIONES = ["Estudios", "Trabajo temporal", "Otros"];
@@ -133,17 +134,19 @@ export default function FaseDetalles({
 
       for (const foto of fotosNuevas) {
         try {
+          const fotoOptimizada = await comprimirFoto(foto);
+
           const { signedUrl, publicUrl } = await api.post<{
             signedUrl: string;
             publicUrl: string;
           }>(`/viviendas/${viviendaId}/fotos/upload-url`, {
-            filename: foto.name,
+            filename: fotoOptimizada.name,
           });
 
           const uploadRes = await fetch(signedUrl, {
             method: "PUT",
-            body: foto,
-            headers: { "Content-Type": foto.type },
+            body: fotoOptimizada,
+            headers: { "Content-Type": "image/jpeg" },
           });
 
           if (uploadRes.ok) {
